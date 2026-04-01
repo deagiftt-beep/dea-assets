@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>行李飄帶/姓名織帶 模擬工具（v13.2 手機優化版）</title>
+<title>行李飄帶/姓名織帶 模擬工具（v13.3 介面微調版）</title>
 <style>
   :root { --cm: 50; --accent: #F29027; }
   * { box-sizing: border-box; }
@@ -41,18 +41,21 @@
   .modal textarea { width:100%; height:180px; padding:10px 12px; border:1px solid #eaeaea; border-radius:12px; }
   .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
 
-  /* 新增：手機版 RWD 響應式設定 */
+  /* 手機版 RWD 響應式設定（調整按鈕大小與間距） */
   @media (max-width: 800px) {
     body { padding: 12px; }
-    .app { grid-template-columns: 1fr; } /* 改為單行上下排列 */
+    .app { grid-template-columns: 1fr; } 
     textarea { height: 160px; }
+    button { padding: 8px 10px; font-size: 13px; } /* 縮小按鈕內距與字體 */
+    .row { gap: 6px; } /* 縮小按鈕之間的間隔 */
+    #editCaptionBtn { margin-left: 0 !important; } /* 取消強制靠右，讓排版更緊湊順暢 */
   }
 </style>
 </head>
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶 模擬工具（v13.2 手機優化版）</h1>
+  <h1>行李飄帶/姓名織帶 模擬工具（v13.3 介面微調版）</h1>
 </header>
 
 <div class="app">
@@ -67,10 +70,10 @@
         <span class="slider"></span>
       </label>
       <button id="renderBtn" class="accent">產生模擬圖</button>
+      <button id="copyBtn" class="secondary">複製剪貼簿</button>
       <button id="saveBtn" class="secondary">新開分頁</button>
-      <button id="copyBtn" class="secondary">複製 (電腦用)</button>
-      <span id="copyStatus" class="status"></span>
       <button id="editCaptionBtn" class="secondary" style="margin-left:auto;">注意事項</button>
+      <span id="copyStatus" class="status"></span>
     </div>
 
     <div class="muted" style="margin-top:6px;">手機操作提醒：圖檔產生後，直接「長按右方圖片」即可儲存或拷貝。</div>
