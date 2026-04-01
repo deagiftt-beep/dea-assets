@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>行李飄帶/姓名織帶 模擬工具（v13.1 專屬雲端版）</title>
+<title>行李飄帶/姓名織帶 模擬工具（v13.2 手機優化版）</title>
 <style>
   :root { --cm: 50; --accent: #F29027; }
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei';
          margin:0; padding:24px; background:#fafafa; color:#222; }
-  header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  header { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap: wrap; }
   header .dot { width:10px; height:10px; border-radius:999px; background:var(--accent); }
   h1 { font-size:20px; margin:0; letter-spacing:.3px; }
   .app { display:grid; grid-template-columns:380px 1fr; gap:16px; }
@@ -23,8 +23,7 @@
   button.accent { background:var(--accent); color:#fff; }
   .muted { color:#666; font-size:12px; }
   .status { font-size:12px; color:#4b5563; margin-left:8px; min-height:1.2em; }
-  canvas { width:100%; height:auto; background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.05); }
-
+  
   .switch { position:relative; display:inline-block; width:44px; height:24px; }
   .switch input { display:none; }
   .slider { position:absolute; inset:0; background:#ddd; border-radius:999px; transition:.2s; }
@@ -41,12 +40,19 @@
   .modal h3 { margin:0; font-size:16px; }
   .modal textarea { width:100%; height:180px; padding:10px 12px; border:1px solid #eaeaea; border-radius:12px; }
   .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+
+  /* 新增：手機版 RWD 響應式設定 */
+  @media (max-width: 800px) {
+    body { padding: 12px; }
+    .app { grid-template-columns: 1fr; } /* 改為單行上下排列 */
+    textarea { height: 160px; }
+  }
 </style>
 </head>
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶 模擬工具（v13.1 專屬雲端版）</h1>
+  <h1>行李飄帶/姓名織帶 模擬工具（v13.2 手機優化版）</h1>
 </header>
 
 <div class="app">
@@ -61,13 +67,13 @@
         <span class="slider"></span>
       </label>
       <button id="renderBtn" class="accent">產生模擬圖</button>
-      <button id="copyBtn" class="secondary">複製圖檔</button>
+      <button id="saveBtn" class="secondary">新開分頁</button>
+      <button id="copyBtn" class="secondary">複製 (電腦用)</button>
       <span id="copyStatus" class="status"></span>
-      <button id="saveBtn" class="secondary">另存檔案</button>
-      <button id="editCaptionBtn" class="secondary">編輯注意事項</button>
+      <button id="editCaptionBtn" class="secondary" style="margin-left:auto;">注意事項</button>
     </div>
 
-    <div class="muted" style="margin-top:6px;">完成輸入後按「產生模擬圖」。系統會自動判斷小圖前後位置。</div>
+    <div class="muted" style="margin-top:6px;">手機操作提醒：圖檔產生後，直接「長按右方圖片」即可儲存或拷貝。</div>
 
     <div class="section-title">連線狀態</div>
     <div class="row">
@@ -79,8 +85,10 @@
     <input type="file" id="fontInput" accept=".ttf,.otf" style="font-size:12px;" />
   </div>
 
-  <div class="panel">
-    <canvas id="sheet"></canvas>
+  <div class="panel" style="text-align: center;">
+    <span id="placeholderText" style="color:#999; font-size:14px; line-height: 200px;">模擬圖將顯示於此（手機可直接長按圖片）</span>
+    <img id="previewImg" style="width:100%; height:auto; background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.05); display:none;" />
+    <canvas id="sheet" style="display:none;"></canvas>
   </div>
 </div>
 
@@ -124,7 +132,6 @@ let captionText=[
 let showGuides = true;
 const iconCache = new Map();
 
-// 自動載入字體與設定 (改成讀取 bbb.ttf)
 window.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('systemStatus');
   try {
@@ -135,7 +142,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     statusEl.textContent = '✅ 雲端字體與圖庫已連線，可直接產圖！';
   } catch(e) {
     statusEl.textContent = '⚠️ 字體載入較慢或失敗，不影響產圖，若字體有誤可手動上傳備用。';
-    console.warn('字體載入異常', e);
   }
 });
 
@@ -182,7 +188,7 @@ function measureTextRunsScaled(ctx, runs, scale){
 }
 function measureTextRuns(ctx, runs){ return measureTextRunsScaled(ctx, runs, 1.0); }
 
-// -------- GitHub 自動尋找小圖邏輯 (防呆各種副檔名) --------
+// -------- GitHub 自動尋找小圖邏輯 --------
 async function loadIconImage(number){
   if(!number) return null;
   if(iconCache.has(number)) return iconCache.get(number);
@@ -190,8 +196,6 @@ async function loadIconImage(number){
   const baseUrl = document.getElementById('githubBaseUrl').value.replace(/\/$/, '');
   const pad2 = String(number).padStart(2, '0');
   const pad3 = String(number).padStart(3, '0');
-  
-  // 建立檔名防呆清單，避免大小寫或檔名習慣導致抓不到
   const candidates = [
     `${baseUrl}/icons/P_${pad3}.png`,
     `${baseUrl}/icons/P_${pad3}.PNG`,
@@ -214,9 +218,7 @@ async function loadIconImage(number){
       });
       iconCache.set(number, img);
       return img;
-    } catch(e) {
-      continue;
-    }
+    } catch(e) { continue; }
   }
   return null;
 }
@@ -423,10 +425,19 @@ async function layoutAndRender(){
   const lines=splitLines(raw).slice(0,10);
   const parsed=lines.map(parseLine).filter(p=>p&&(p.text||p.iconNo||p.colorHex));
   const n=Math.max(0,Math.min(10,parsed.length));
-  const margin=cm(MARGIN_CM), gap=cm(GAP_CM);
+  
+  const placeholder = document.getElementById('placeholderText');
+  const previewImg = document.getElementById('previewImg');
+  
+  if (n === 0) {
+    previewImg.style.display = 'none';
+    placeholder.style.display = 'inline-block';
+    return;
+  }
 
+  const margin=cm(MARGIN_CM), gap=cm(GAP_CM);
   const heights=parsed.map(p=>p.type==='name'?cm(NAME_W_CM):cm(STRAP_W_CM));
-  const totalH = n>0 ? heights.reduce((a,b)=>a+b,0) + gap*Math.max(0,n-1) : 0;
+  const totalH = heights.reduce((a,b)=>a+b,0) + gap*Math.max(0,n-1);
   const canvasW=Math.round(margin*2 + Math.max(cm(STRAP_LEN_CM), cm(NAME_TOTAL_LEN_CM)));
   const capText=captionText||'';
   const ctxFont=CAPTION_PX+"px system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei'";
@@ -434,9 +445,9 @@ async function layoutAndRender(){
   const maxW=canvasW - margin*2;
   const capLines=wrapCaption(ctx, capText, maxW);
   const capLH=CAPTION_PX + 10;
-  const captionH=(n>0 && capText) ? capLines.length*capLH : 0;
+  const captionH= capText ? capLines.length*capLH : 0;
 
-  const canvasH=Math.round(margin + totalH + (n>0 && capText ? cm(CAPTION_GAP_CM):0) + captionH + cm(BOTTOM_AFTER_CAP_CM));
+  const canvasH=Math.round(margin + totalH + (capText ? cm(CAPTION_GAP_CM):0) + captionH + cm(BOTTOM_AFTER_CAP_CM));
   sheet.width=canvasW; sheet.height=canvasH; ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvasW,canvasH);
 
   let curY=margin;
@@ -447,12 +458,17 @@ async function layoutAndRender(){
     else{ await drawLuggageStrap(ctx,x,curY,p); curY+=cm(STRAP_W_CM)+gap; }
   }
 
-  if(n>0 && capText){
+  if(capText){
     const startY=curY-gap+cm(CAPTION_GAP_CM);
     ctx.save(); ctx.font=ctxFont; ctx.fillStyle='#262626'; ctx.textBaseline='top';
     let y=startY; for(const ln of capLines){ ctx.fillText(ln, margin, y); y+=capLH; }
     ctx.restore();
   }
+
+  // 將 Canvas 轉換為實際圖片，讓手機端可以直接長按下載或拷貝
+  previewImg.src = sheet.toDataURL('image/jpeg', 0.95);
+  previewImg.style.display = 'block';
+  placeholder.style.display = 'none';
 }
 
 // -------- 匯出/複製 --------
@@ -467,21 +483,35 @@ async function canvasToUnder2MB(canvas){
   }
   return {blob:blobJ||blobPng, type: blobJ?'image/jpeg':'image/png'};
 }
+
 document.getElementById('renderBtn').addEventListener('click', layoutAndRender);
-document.getElementById('saveBtn').addEventListener('click', async ()=>{
-  await layoutAndRender();
-  const c=document.getElementById('sheet');
-  const {blob,type}=await canvasToUnder2MB(c);
-  const a=document.createElement('a'); a.download='strap-mockups'+(type==='image/png'?'.png':'.jpg'); a.href=URL.createObjectURL(blob); a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+
+// 手機友善：同步開窗以防 iOS 阻擋
+document.getElementById('saveBtn').addEventListener('click', () => {
+  const newWin = window.open('', '_blank');
+  if (!newWin) {
+    alert('請關閉瀏覽器的「阻擋彈出視窗」功能才能使用新開分頁。');
+    return;
+  }
+  newWin.document.write('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0; background:#333; display:flex; justify-content:center; align-items:flex-start;"><div style="color:#fff; padding:20px; font-family:sans-serif;">圖片產生中...請稍候</div></body>');
+  
+  layoutAndRender().then(() => {
+    const dataUrl = document.getElementById('sheet').toDataURL('image/jpeg', 0.95);
+    newWin.document.body.innerHTML = '<img src="' + dataUrl + '" style="width:100%; max-width:1000px; height:auto; display:block; margin:0 auto;">';
+  });
 });
+
 document.getElementById('copyBtn').addEventListener('click', async ()=>{
   const status=document.getElementById('copyStatus'); 
   await layoutAndRender();
   const c=document.getElementById('sheet');
   const {blob,type}=await canvasToUnder2MB(c);
-  try{ await navigator.clipboard.write([new ClipboardItem({[type]:blob})]); status.textContent='已複製到剪貼簿'; }
-  catch(e){ status.textContent='複製失敗：' + e; }
+  try{ 
+    await navigator.clipboard.write([new ClipboardItem({[type]:blob})]); 
+    status.textContent='已複製！'; 
+  } catch(e) { 
+    status.textContent='手機請直接長按圖片'; 
+  }
   setTimeout(()=>{ status.textContent=''; }, 2000);
 });
 
