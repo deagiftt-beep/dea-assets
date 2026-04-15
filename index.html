@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>行李飄帶/姓名織帶 模擬工具（v13.3 介面微調版）</title>
+<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v13.4）</title>
 <style>
   :root { --cm: 50; --accent: #F29027; }
   * { box-sizing: border-box; }
@@ -41,27 +41,26 @@
   .modal textarea { width:100%; height:180px; padding:10px 12px; border:1px solid #eaeaea; border-radius:12px; }
   .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
 
-  /* 手機版 RWD 響應式設定（調整按鈕大小與間距） */
   @media (max-width: 800px) {
     body { padding: 12px; }
     .app { grid-template-columns: 1fr; } 
     textarea { height: 160px; }
-    button { padding: 8px 10px; font-size: 13px; } /* 縮小按鈕內距與字體 */
-    .row { gap: 6px; } /* 縮小按鈕之間的間隔 */
-    #editCaptionBtn { margin-left: 0 !important; } /* 取消強制靠右，讓排版更緊湊順暢 */
+    button { padding: 8px 10px; font-size: 13px; } 
+    .row { gap: 6px; } 
+    #editCaptionBtn { margin-left: 0 !important; } 
   }
 </style>
 </head>
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶 模擬工具（v13.3 介面微調版）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v13.4）</h1>
 </header>
 
 <div class="app">
   <div class="panel">
     <label>把客人留言貼在這裡（每行一條，最多 10 條）：</label>
-    <textarea id="orders" placeholder="行李飄帶:顏色+文字+小圖編號&#10;姓名織帶:顏色+金屬夾+文字+小圖編號&#10;小圖可在文字之前，例如:原色+20+文字"></textarea>
+    <textarea id="orders" placeholder="行李飄帶:顏色+文字+小圖編號&#10;姓名織帶:顏色+金屬夾+文字+小圖編號&#10;寶寶領巾:b+顏色+文字+小圖編號&#10;小圖可在文字之前，例如:原色+20+文字"></textarea>
 
     <div class="row" style="margin-top:10px">
       <span class="small">顯示可刺繡範圍虛線</span>
@@ -116,6 +115,8 @@ function lighten(hex,ratio=1.15){ if(!hex||!hex.startsWith('#'))return hex; let 
 
 const STRAP_LEN_CM=26.5, STRAP_W_CM=3.8, HOLE_D_CM=1.2, HOLE1_X_CM=4.2, HOLE2_X_CM=6.0, TAIL_DARK_CM=0.2;
 const NAME_TOTAL_LEN_CM=16.15, NAME_CLIP_W_CM=2.35, NAME_STRAP_LEN_CM=13.8, NAME_W_CM=3.2, NAME_ICON_H_CM=2.5, NAME_SCALE=0.75;
+const BIB_W_CM=29.0, BIB_H_CM=14.5; // 新增領巾尺寸設定
+
 const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫瑰':'#ECB98D','金色':'#FEE6A8','金':'#FEE6A8','槍黑色':'#727171','槍黑':'#727171','黑':'#727171'};
 const MARGIN_CM=4.0, GAP_CM=2.0, CAPTION_PT=17, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
 const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, DEFAULT_GAP_CM=1.0, MAX_SPAN_CM=14.5;
@@ -124,6 +125,17 @@ const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':
 function textColorForStrap(name){ const natural=['原色','米白','奶油白','米色','原','黃色','黃']; for(const k of natural){ if((name||'').includes(k)) return '#000'; } return '#fff'; }
 const NAME_COLORS={'白色':'#FFFFFF','白':'#FFFFFF','原色':'#F5F0EE','原':'#F5F0EE','米色':'#F5F0EE','卡其色':'#E3C6B6','卡其':'#E3C6B6','棕':'#E3C6B6','鵝黃色':'#FAE7BF','鵝黃':'#FAE7BF','黃色':'#FAE7BF','黃':'#FAE7BF','粉色':'#E2AFA8','粉':'#E2AFA8','灰色':'#C4C9CE','灰':'#C4C9CE','薄荷綠':'#CAE7E4','薄荷':'#CAE7E4','抹茶綠':'#BEBCA6','抹茶':'#BEBCA6','藍色':'#778EA2','藍':'#778EA2'};
 const NAME_TEXT_COLORS={'白色':'#000','白':'#000','原色':'#000','原':'#000','米色':'#000','卡其色':'#fff','卡其':'#fff','棕':'#fff','鵝黃色':'#000','鵝黃':'#000','黃色':'#000','黃':'#000','粉色':'#fff','粉':'#fff','灰色':'#fff','灰':'#fff','薄荷綠':'#000','薄荷':'#000','抹茶綠':'#fff','抹茶':'#fff','藍色':'#000','藍':'#000'};
+
+// 新增寶寶領巾專屬配色表
+const BIB_COLORS={
+  '黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'鵝黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'奶油黃':{bg:'#e7dcb8',txt:'#9b5c3a'},
+  '綠':{bg:'#b3c5c2',txt:'#324741'},'薄荷綠':{bg:'#b3c5c2',txt:'#324741'},
+  '粉':{bg:'#dfb2b2',txt:'#b88a89'},'櫻花粉':{bg:'#dfb2b2',txt:'#b88a89'},
+  '藍':{bg:'#a6c1da',txt:'#2b3246'},'淺藍':{bg:'#a6c1da',txt:'#2b3246'},
+  '紫':{bg:'#a199bb',txt:'#4a3563'},'薰衣草紫':{bg:'#a199bb',txt:'#4a3563'},
+  '咖啡':{bg:'#b08761',txt:'#fefdee'},'棕':{bg:'#b08761',txt:'#fefdee'},'卡其':{bg:'#b08761',txt:'#fefdee'},
+  '灰':{bg:'#554f4d',txt:'#ffffff'},'石墨灰':{bg:'#554f4d',txt:'#ffffff'}
+};
 
 let captionText=[
 '• 此模擬圖僅供確認所選的顏色、文字與小圖是否正確，實際的文字與小圖的比例、刺繡線色……等均以成品為準。',
@@ -152,7 +164,6 @@ document.getElementById('guideToggle').addEventListener('change', e=>{ showGuide
 async function loadUserFont(file){ try{ const data=await file.arrayBuffer(); const face=new FontFace('ZhiDai', data); await face.load(); document.fonts.add(face);}catch(e){} }
 document.getElementById('fontInput').addEventListener('change', async e=>{ const f=e.target.files[0]; if(f) await loadUserFont(f); });
 
-// -------- 文字測量與分段 --------
 function splitLines(raw){
   if(!raw) return [];
   const norm = raw.replace(/\u000D\u000A/g,'\n').replace(/\u000D/g,'\n').replace(/\u2028|\u2029/g,'\n');
@@ -191,7 +202,6 @@ function measureTextRunsScaled(ctx, runs, scale){
 }
 function measureTextRuns(ctx, runs){ return measureTextRunsScaled(ctx, runs, 1.0); }
 
-// -------- GitHub 自動尋找小圖邏輯 --------
 async function loadIconImage(number){
   if(!number) return null;
   if(iconCache.has(number)) return iconCache.get(number);
@@ -226,9 +236,18 @@ async function loadIconImage(number){
   return null;
 }
 
-// -------- 一行解析 --------
+// -------- 核心更新：解析判斷加入寶寶領巾 --------
 function parseLine(line){
   let src = cleanStartNumbering((line||'').trim()); if(!src) return null;
+  
+  let isBib = false;
+  // 判斷是否為 b 開頭的寶寶領巾格式
+  const bibMatch = src.match(/^[bBｂＢ]\s*[+＋\s]?\s*(.*)/);
+  if(bibMatch) {
+    isBib = true;
+    src = bibMatch[1];
+  }
+
   let explicitColor=null;
   if(/\((黑|白)\)/.test(src) || /（(黑|白)）/.test(src)){
     if(/(黑)/.test(src)) explicitColor='#000';
@@ -237,11 +256,25 @@ function parseLine(line){
   }
 
   const tokensAll = tokenizeFlexible(src);
-  const isNameStrap = tokensAll.length >= 4;
+  const isNameStrap = !isBib && tokensAll.length >= 4; 
   let tokens = tokensAll.slice();
   let colorHex='#ccc', textHex='#fff', metalHex=null, colorToken=null;
 
-  if(isNameStrap){
+  // 顏色判別區分產品線
+  if(isBib) {
+    for(let i=0;i<tokens.length;i++){
+      const t=tokens[i];
+      const hk=Object.keys(BIB_COLORS).find(k=>t===k||t.includes(k));
+      if(hk){
+        colorToken=t;
+        colorHex=BIB_COLORS[hk].bg;
+        textHex=explicitColor || BIB_COLORS[hk].txt;
+        tokens.splice(i,1); i--; break;
+      }
+    }
+    // 防呆：如果都沒比對到，預設給鵝黃色
+    if(!colorToken){ colorHex='#e7dcb8'; textHex=explicitColor || '#9b5c3a'; }
+  } else if(isNameStrap){
     for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hit=Object.keys(METAL_MAP).find(k=>t===k||t.includes(k)); if(hit){ metalHex=METAL_MAP[hit]; tokens.splice(i,1); i--; break; } }
     for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hk=Object.keys(NAME_COLORS).find(k=>t===k||t.includes(k)); if(hk){ colorToken=t; colorHex=NAME_COLORS[hk]; tokens.splice(i,1); i--; break; } }
     if(!colorToken){
@@ -254,6 +287,7 @@ function parseLine(line){
     textHex = explicitColor || textColorForStrap(colorToken||'');
   }
 
+  // 擷取小圖編號與前後順序
   let iconNo = null;
   let iconPos = 'right';
   let textTokens = [];
@@ -268,7 +302,91 @@ function parseLine(line){
     }
   }
   const text = textTokens.join(' ').trim();
-  return { type: isNameStrap ? 'name' : 'lug', text, iconNo, iconPos, colorHex, textHex, metalHex };
+  const type = isBib ? 'bib' : (isNameStrap ? 'name' : 'lug');
+  return { type, text, iconNo, iconPos, colorHex, textHex, metalHex };
+}
+
+// -------- 繪圖：寶寶領巾 (全新) --------
+async function drawBib(ctx, x, y, spec){
+  const W = cm(BIB_W_CM), H = cm(BIB_H_CM);
+  ctx.save(); ctx.translate(x, y);
+
+  // 利用數學公式繪製複雜的波浪領巾形狀
+  ctx.fillStyle = spec.colorHex || '#e7dcb8';
+  ctx.beginPath();
+  // 頸部開口 (深度 4.9cm，佔比約 33.8%)
+  ctx.moveTo(W * 0.34, 0);
+  ctx.bezierCurveTo(W * 0.34, H * 0.45, W * 0.66, H * 0.45, W * 0.66, 0);
+  // 右肩膀與右側
+  ctx.bezierCurveTo(W * 0.85, H * 0.05, W * 0.98, H * 0.15, W * 0.98, H * 0.4);
+  ctx.bezierCurveTo(W * 0.98, H * 0.65, W * 0.85, H * 0.75, W * 0.75, H * 0.8);
+  // 右波浪至中間波浪
+  ctx.bezierCurveTo(W * 0.65, H * 0.85, W * 0.65, H * 1.0, W * 0.5, H * 1.0);
+  ctx.bezierCurveTo(W * 0.35, H * 1.0, W * 0.35, H * 0.85, W * 0.25, H * 0.8);
+  // 左波浪至左肩膀
+  ctx.bezierCurveTo(W * 0.15, H * 0.75, W * 0.02, H * 0.65, W * 0.02, H * 0.4);
+  ctx.bezierCurveTo(W * 0.02, H * 0.15, W * 0.15, H * 0.05, W * 0.34, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // 加上淡淡的描邊增加真實感
+  ctx.strokeStyle = darken(spec.colorHex, 0.9);
+  ctx.lineWidth = cm(0.06);
+  ctx.stroke();
+
+  // 計算可刺繡範圍基準（根據 96mm / 9.6cm 藍線區域）
+  // 總高14.5cm，領口深4.9cm，所以刺繡區域的 Y 軸中心在 4.9 + (9.6 / 2) = 9.7cm
+  const centerY = cm(9.7);
+  const centerX = W / 2;
+
+  // 文字與小圖尺寸與姓名織帶一致
+  const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
+  const textW = runs.totalWidth;
+  const iconH = cm(NAME_ICON_H_CM), iconW = iconH;
+  let gap = cm(DEFAULT_GAP_CM);
+
+  const areaMax = cm(10.0); // 預設 10cm 可刺繡安全寬度
+  let total = textW + (spec.iconNo ? (gap + iconW) : 0);
+  if (spec.iconNo && total > areaMax) {
+    gap = Math.max(0, areaMax - (textW + iconW));
+    total = textW + gap + iconW;
+  }
+  let startX = centerX - total/2;
+
+  // 顯示虛線引導範圍
+  if (showGuides) {
+    const dashH = cm(4.2);
+    const leftGuide = centerX - areaMax/2, rightGuide = centerX + areaMax/2;
+    const topY = centerY - dashH/2, botY = centerY + dashH/2;
+    ctx.save(); ctx.setLineDash([cm(0.2), cm(0.2)]); ctx.lineWidth=cm(0.06);
+    ctx.strokeStyle='rgba(43,164,247,0.95)';
+    ctx.beginPath(); ctx.moveTo(leftGuide, topY); ctx.lineTo(leftGuide, botY);
+    ctx.moveTo(rightGuide, topY); ctx.lineTo(rightGuide, botY); ctx.stroke();
+    ctx.restore();
+  }
+
+  let textStartX = 0, iconX = 0;
+  if(spec.iconPos === 'left'){
+    iconX = startX;
+    textStartX = startX + (spec.iconNo ? iconW + gap : 0);
+  } else {
+    textStartX = startX;
+    iconX = startX + textW + gap;
+  }
+
+  // 繪製文字與小圖
+  ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle = spec.textHex || '#000'; 
+  let curX = textStartX;
+  for(const r2 of runs.runs){ 
+    ctx.font = r2.fontPx+"px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif"; 
+    if(r2.text.trim()) ctx.fillText(r2.text, curX, centerY + r2.shiftPx); 
+    curX += r2.width; 
+  }
+  if(spec.iconNo){ 
+    const img = await loadIconImage(spec.iconNo); 
+    if(img){ ctx.drawImage(img, iconX, centerY - iconH/2, iconW, iconH); } 
+  }
+  ctx.restore();
 }
 
 // -------- 繪圖：行李飄帶 --------
@@ -439,9 +557,14 @@ async function layoutAndRender(){
   }
 
   const margin=cm(MARGIN_CM), gap=cm(GAP_CM);
-  const heights=parsed.map(p=>p.type==='name'?cm(NAME_W_CM):cm(STRAP_W_CM));
+  
+  // 計算總高度，需將寶寶領巾的獨立高度納入考量
+  const heights = parsed.map(p => p.type === 'bib' ? cm(BIB_H_CM) : (p.type === 'name' ? cm(NAME_W_CM) : cm(STRAP_W_CM)));
   const totalH = heights.reduce((a,b)=>a+b,0) + gap*Math.max(0,n-1);
-  const canvasW=Math.round(margin*2 + Math.max(cm(STRAP_LEN_CM), cm(NAME_TOTAL_LEN_CM)));
+  
+  // 計算畫布總寬（以寬度最長的商品為基準）
+  const canvasW = Math.round(margin*2 + Math.max(cm(STRAP_LEN_CM), cm(NAME_TOTAL_LEN_CM), cm(BIB_W_CM)));
+  
   const capText=captionText||'';
   const ctxFont=CAPTION_PX+"px system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei'";
   ctx.font=ctxFont;
@@ -456,9 +579,22 @@ async function layoutAndRender(){
   let curY=margin;
   for(let i=0;i<n;i++){
     const p=parsed[i];
-    const x = (p.type==='name') ? Math.round((canvasW - cm(NAME_TOTAL_LEN_CM))/2) : margin;
-    if(p.type==='name'){ await drawNameStrap(ctx,x,curY,p); curY+=cm(NAME_W_CM)+gap; }
-    else{ await drawLuggageStrap(ctx,x,curY,p); curY+=cm(STRAP_W_CM)+gap; }
+    let x = margin;
+    
+    // 將所有商品置中處理，確保畫布撐大後視覺不偏移
+    if (p.type === 'bib') {
+      x = Math.round((canvasW - cm(BIB_W_CM))/2);
+      await drawBib(ctx, x, curY, p); 
+      curY += cm(BIB_H_CM) + gap;
+    } else if(p.type === 'name') { 
+      x = Math.round((canvasW - cm(NAME_TOTAL_LEN_CM))/2);
+      await drawNameStrap(ctx, x, curY, p); 
+      curY += cm(NAME_W_CM) + gap; 
+    } else { 
+      x = Math.round((canvasW - cm(STRAP_LEN_CM))/2);
+      await drawLuggageStrap(ctx, x, curY, p); 
+      curY += cm(STRAP_W_CM) + gap; 
+    }
   }
 
   if(capText){
@@ -468,7 +604,6 @@ async function layoutAndRender(){
     ctx.restore();
   }
 
-  // 將 Canvas 轉換為實際圖片，讓手機端可以直接長按下載或拷貝
   previewImg.src = sheet.toDataURL('image/jpeg', 0.95);
   previewImg.style.display = 'block';
   placeholder.style.display = 'none';
@@ -523,7 +658,8 @@ document.getElementById('editCaptionBtn').addEventListener('click',()=>{ documen
 document.getElementById('closeModal').addEventListener('click',()=> modal.style.display='none');
 document.getElementById('saveCaption').addEventListener('click',()=>{ captionText=document.getElementById('captionEditor').value||''; modal.style.display='none'; });
 
-document.getElementById('orders').value="黑+Maico+1\n黃+金+小麥+20\n原色+20+咪咪";
+// 預設加上領巾測試範例
+document.getElementById('orders').value="黑+Maico+1\n黃+金+小麥+20\nb+藍色+Maico+60";
 </script>
 </body>
 </html>
