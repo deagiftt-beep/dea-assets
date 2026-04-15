@@ -328,7 +328,7 @@ async function drawBib(ctx, x, y, spec){
   ctx.restore();
 
   // 📍 修正：加入 y 變數確保多條領巾能正確排列，您可以在這裡自行微調數值（數字越小越上面）
-  const centerY = y + cm(8.5); 
+  const centerY = y + cm(8.1); 
   const centerX = x + W / 2;
 
   const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
