@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v13.4）</title>
+<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v13.5）</title>
 <style>
   :root { --cm: 50; --accent: #F29027; }
   * { box-sizing: border-box; }
@@ -54,7 +54,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v13.4）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v13.5）</h1>
 </header>
 
 <div class="app">
@@ -115,22 +115,25 @@ function lighten(hex,ratio=1.15){ if(!hex||!hex.startsWith('#'))return hex; let 
 
 const STRAP_LEN_CM=26.5, STRAP_W_CM=3.8, HOLE_D_CM=1.2, HOLE1_X_CM=4.2, HOLE2_X_CM=6.0, TAIL_DARK_CM=0.2;
 const NAME_TOTAL_LEN_CM=16.15, NAME_CLIP_W_CM=2.35, NAME_STRAP_LEN_CM=13.8, NAME_W_CM=3.2, NAME_ICON_H_CM=2.5, NAME_SCALE=0.75;
-const BIB_W_CM=29.0, BIB_H_CM=14.5; // 新增領巾尺寸設定
+const BIB_W_CM=29.0, BIB_H_CM=14.5; 
 
 const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫瑰':'#ECB98D','金色':'#FEE6A8','金':'#FEE6A8','槍黑色':'#727171','槍黑':'#727171','黑':'#727171'};
 const MARGIN_CM=4.0, GAP_CM=2.0, CAPTION_PT=17, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
-const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, DEFAULT_GAP_CM=1.0, MAX_SPAN_CM=14.5;
+const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, MAX_SPAN_CM=14.5;
+
+// 更新 2: 文字與小圖間距縮小 20%
+const DEFAULT_GAP_CM=0.8; 
 
 const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':'#E3C6C6','紫色':'#AEA2AC','紫':'#AEA2AC','綠色':'#B7BEA8','綠':'#B7BEA8','藍色':'#B8C5D6','藍':'#B8C5D6','咖啡色':'#B29E8D','咖啡':'#B29E8D','棕':'#B29E8D','棕色':'#B29E8D','卡其':'#B29E8D','黑色':'#343436','黑':'#343436','原色':'#F3EFEC','米白':'#F3EFEC','奶油白':'#F3EFEC','米色':'#F3EFEC','原':'#F3EFEC','黃色':'#ffe4a2','黃':'#ffe4a2'};
 function textColorForStrap(name){ const natural=['原色','米白','奶油白','米色','原','黃色','黃']; for(const k of natural){ if((name||'').includes(k)) return '#000'; } return '#fff'; }
 const NAME_COLORS={'白色':'#FFFFFF','白':'#FFFFFF','原色':'#F5F0EE','原':'#F5F0EE','米色':'#F5F0EE','卡其色':'#E3C6B6','卡其':'#E3C6B6','棕':'#E3C6B6','鵝黃色':'#FAE7BF','鵝黃':'#FAE7BF','黃色':'#FAE7BF','黃':'#FAE7BF','粉色':'#E2AFA8','粉':'#E2AFA8','灰色':'#C4C9CE','灰':'#C4C9CE','薄荷綠':'#CAE7E4','薄荷':'#CAE7E4','抹茶綠':'#BEBCA6','抹茶':'#BEBCA6','藍色':'#778EA2','藍':'#778EA2'};
 const NAME_TEXT_COLORS={'白色':'#000','白':'#000','原色':'#000','原':'#000','米色':'#000','卡其色':'#fff','卡其':'#fff','棕':'#fff','鵝黃色':'#000','鵝黃':'#000','黃色':'#000','黃':'#000','粉色':'#fff','粉':'#fff','灰色':'#fff','灰':'#fff','薄荷綠':'#000','薄荷':'#000','抹茶綠':'#fff','抹茶':'#fff','藍色':'#000','藍':'#000'};
 
-// 新增寶寶領巾專屬配色表
 const BIB_COLORS={
   '黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'鵝黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'奶油黃':{bg:'#e7dcb8',txt:'#9b5c3a'},
   '綠':{bg:'#b3c5c2',txt:'#324741'},'薄荷綠':{bg:'#b3c5c2',txt:'#324741'},
-  '粉':{bg:'#dfb2b2',txt:'#b88a89'},'櫻花粉':{bg:'#dfb2b2',txt:'#b88a89'},
+  // 更新 3: 粉色領巾文字顏色加深
+  '粉':{bg:'#dfb2b2',txt:'#a97675'},'櫻花粉':{bg:'#dfb2b2',txt:'#a97675'},
   '藍':{bg:'#a6c1da',txt:'#2b3246'},'淺藍':{bg:'#a6c1da',txt:'#2b3246'},
   '紫':{bg:'#a199bb',txt:'#4a3563'},'薰衣草紫':{bg:'#a199bb',txt:'#4a3563'},
   '咖啡':{bg:'#b08761',txt:'#fefdee'},'棕':{bg:'#b08761',txt:'#fefdee'},'卡其':{bg:'#b08761',txt:'#fefdee'},
@@ -236,12 +239,10 @@ async function loadIconImage(number){
   return null;
 }
 
-// -------- 核心更新：解析判斷加入寶寶領巾 --------
 function parseLine(line){
   let src = cleanStartNumbering((line||'').trim()); if(!src) return null;
   
   let isBib = false;
-  // 判斷是否為 b 開頭的寶寶領巾格式
   const bibMatch = src.match(/^[bBｂＢ]\s*[+＋\s]?\s*(.*)/);
   if(bibMatch) {
     isBib = true;
@@ -252,7 +253,7 @@ function parseLine(line){
   if(/\((黑|白)\)/.test(src) || /（(黑|白)）/.test(src)){
     if(/(黑)/.test(src)) explicitColor='#000';
     if(/(白)/.test(src)) explicitColor='#fff';
-    src = src.replace(/\s*[\(（](黑|白)[\)）]\s*/g,' ').trim();
+    src = src.replace(/\s*[\(（](黑|白)[\)適|適用]\s*/g,' ').trim();
   }
 
   const tokensAll = tokenizeFlexible(src);
@@ -260,7 +261,6 @@ function parseLine(line){
   let tokens = tokensAll.slice();
   let colorHex='#ccc', textHex='#fff', metalHex=null, colorToken=null;
 
-  // 顏色判別區分產品線
   if(isBib) {
     for(let i=0;i<tokens.length;i++){
       const t=tokens[i];
@@ -272,7 +272,6 @@ function parseLine(line){
         tokens.splice(i,1); i--; break;
       }
     }
-    // 防呆：如果都沒比對到，預設給鵝黃色
     if(!colorToken){ colorHex='#e7dcb8'; textHex=explicitColor || '#9b5c3a'; }
   } else if(isNameStrap){
     for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hit=Object.keys(METAL_MAP).find(k=>t===k||t.includes(k)); if(hit){ metalHex=METAL_MAP[hit]; tokens.splice(i,1); i--; break; } }
@@ -287,7 +286,6 @@ function parseLine(line){
     textHex = explicitColor || textColorForStrap(colorToken||'');
   }
 
-  // 擷取小圖編號與前後順序
   let iconNo = null;
   let iconPos = 'right';
   let textTokens = [];
@@ -306,46 +304,65 @@ function parseLine(line){
   return { type, text, iconNo, iconPos, colorHex, textHex, metalHex };
 }
 
-// -------- 繪圖：寶寶領巾 (全新) --------
+// -------- 繪圖：寶寶領巾 (更新 1: 形狀精確修正版) --------
 async function drawBib(ctx, x, y, spec){
   const W = cm(BIB_W_CM), H = cm(BIB_H_CM);
   ctx.save(); ctx.translate(x, y);
 
-  // 利用數學公式繪製複雜的波浪領巾形狀
+  // 利用數學公式與精確坐标繪製與技術圖完全一致的雲朵領巾形狀
   ctx.fillStyle = spec.colorHex || '#e7dcb8';
   ctx.beginPath();
-  // 頸部開口 (深度 4.9cm，佔比約 33.8%)
-  ctx.moveTo(W * 0.34, 0);
-  ctx.bezierCurveTo(W * 0.34, H * 0.45, W * 0.66, H * 0.45, W * 0.66, 0);
-  // 右肩膀與右側
+  
+  // 起點：領口左上角 [x: ~35%, y: 0]
+  ctx.moveTo(W * 0.35, 0);
+  
+  // 1. 領口圓弧 (深 4.9cm)，至領口右上角 [x: ~65%, y: 0]
+  ctx.bezierCurveTo(W * 0.35, H * 0.45, W * 0.65, H * 0.45, W * 0.65, 0);
+  
+  // 2. 右肩頂部邊緣 [x: ~80%, y: ~5%], 至右側中點 [x: ~98%, y: ~40%]
   ctx.bezierCurveTo(W * 0.85, H * 0.05, W * 0.98, H * 0.15, W * 0.98, H * 0.4);
+  
+  // 3. 右側中點弧形往下，至右下第一個波浪頂 [x: ~75%, y: ~80%]
   ctx.bezierCurveTo(W * 0.98, H * 0.65, W * 0.85, H * 0.75, W * 0.75, H * 0.8);
-  // 右波浪至中間波浪
-  ctx.bezierCurveTo(W * 0.65, H * 0.85, W * 0.65, H * 1.0, W * 0.5, H * 1.0);
-  ctx.bezierCurveTo(W * 0.35, H * 1.0, W * 0.35, H * 0.85, W * 0.25, H * 0.8);
-  // 左波浪至左肩膀
+  
+  // 4. 右下波浪弧形 (右半部雲朵)，至右下波浪谷底 [x: ~60%, y: ~95%]
+  ctx.bezierCurveTo(W * 0.65, H * 0.85, W * 0.60, H * 0.90, W * 0.60, H * 0.95);
+  
+  // 5. 中下谷底弧形 (最下面的雲朵中間部分)，至中心最底部 [x: 50%, y: 100%]
+  ctx.bezierCurveTo(W * 0.60, H * 1.0, W * 0.55, H * 1.0, W * 0.5, H * 1.0);
+
+  // --- 左半部 (對稱鏡像) ---
+  
+  // 6. 左下谷底弧形 (最下面的雲朵中間部分)，至左下波浪谷底 [x: ~40%, y: ~95%]
+  ctx.bezierCurveTo(W * 0.45, H * 1.0, W * 0.40, H * 1.0, W * 0.40, H * 0.95);
+  
+  // 7. 左下波浪弧形 (左半部雲朵)，至左下第一個波浪頂 [x: ~25%, y: ~80%]
+  ctx.bezierCurveTo(W * 0.40, H * 0.90, W * 0.35, H * 0.85, W * 0.25, H * 0.8);
+  
+  // 8. 左側中點弧形往上，至左側中點 [x: ~2%, y: ~40%]
   ctx.bezierCurveTo(W * 0.15, H * 0.75, W * 0.02, H * 0.65, W * 0.02, H * 0.4);
-  ctx.bezierCurveTo(W * 0.02, H * 0.15, W * 0.15, H * 0.05, W * 0.34, 0);
+  
+  // 9. 左肩頂部邊緣，回至起點領口左上角 [x: ~35%, y: 0]
+  ctx.bezierCurveTo(W * 0.02, H * 0.15, W * 0.15, H * 0.05, W * 0.35, 0);
+
   ctx.closePath();
   ctx.fill();
 
-  // 加上淡淡的描邊增加真實感
+  // 描邊
   ctx.strokeStyle = darken(spec.colorHex, 0.9);
   ctx.lineWidth = cm(0.06);
   ctx.stroke();
 
-  // 計算可刺繡範圍基準（根據 96mm / 9.6cm 藍線區域）
-  // 總高14.5cm，領口深4.9cm，所以刺繡區域的 Y 軸中心在 4.9 + (9.6 / 2) = 9.7cm
+  // 刺繡範圍基準（根據 96mm / 9.6cm 藍線區域）
   const centerY = cm(9.7);
   const centerX = W / 2;
 
-  // 文字與小圖尺寸與姓名織帶一致
   const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
   const textW = runs.totalWidth;
   const iconH = cm(NAME_ICON_H_CM), iconW = iconH;
   let gap = cm(DEFAULT_GAP_CM);
 
-  const areaMax = cm(10.0); // 預設 10cm 可刺繡安全寬度
+  const areaMax = cm(10.0); 
   let total = textW + (spec.iconNo ? (gap + iconW) : 0);
   if (spec.iconNo && total > areaMax) {
     gap = Math.max(0, areaMax - (textW + iconW));
@@ -353,7 +370,6 @@ async function drawBib(ctx, x, y, spec){
   }
   let startX = centerX - total/2;
 
-  // 顯示虛線引導範圍
   if (showGuides) {
     const dashH = cm(4.2);
     const leftGuide = centerX - areaMax/2, rightGuide = centerX + areaMax/2;
@@ -374,7 +390,6 @@ async function drawBib(ctx, x, y, spec){
     iconX = startX + textW + gap;
   }
 
-  // 繪製文字與小圖
   ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle = spec.textHex || '#000'; 
   let curX = textStartX;
   for(const r2 of runs.runs){ 
@@ -557,12 +572,8 @@ async function layoutAndRender(){
   }
 
   const margin=cm(MARGIN_CM), gap=cm(GAP_CM);
-  
-  // 計算總高度，需將寶寶領巾的獨立高度納入考量
   const heights = parsed.map(p => p.type === 'bib' ? cm(BIB_H_CM) : (p.type === 'name' ? cm(NAME_W_CM) : cm(STRAP_W_CM)));
   const totalH = heights.reduce((a,b)=>a+b,0) + gap*Math.max(0,n-1);
-  
-  // 計算畫布總寬（以寬度最長的商品為基準）
   const canvasW = Math.round(margin*2 + Math.max(cm(STRAP_LEN_CM), cm(NAME_TOTAL_LEN_CM), cm(BIB_W_CM)));
   
   const capText=captionText||'';
@@ -581,7 +592,6 @@ async function layoutAndRender(){
     const p=parsed[i];
     let x = margin;
     
-    // 將所有商品置中處理，確保畫布撐大後視覺不偏移
     if (p.type === 'bib') {
       x = Math.round((canvasW - cm(BIB_W_CM))/2);
       await drawBib(ctx, x, curY, p); 
@@ -658,7 +668,6 @@ document.getElementById('editCaptionBtn').addEventListener('click',()=>{ documen
 document.getElementById('closeModal').addEventListener('click',()=> modal.style.display='none');
 document.getElementById('saveCaption').addEventListener('click',()=>{ captionText=document.getElementById('captionEditor').value||''; modal.style.display='none'; });
 
-// 預設加上領巾測試範例
 document.getElementById('orders').value="黑+Maico+1\n黃+金+小麥+20\nb+藍色+Maico+60";
 </script>
 </body>
