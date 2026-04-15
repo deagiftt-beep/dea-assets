@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v13.7）</title>
+<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v13.8）</title>
 <style>
   :root { --cm: 50; --accent: #F29027; }
   * { box-sizing: border-box; }
@@ -54,7 +54,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v13.7 完美還原與位置修正）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v13.8 定位修復版）</h1>
 </header>
 
 <div class="app">
@@ -118,18 +118,17 @@ const NAME_TOTAL_LEN_CM=16.15, NAME_CLIP_W_CM=2.35, NAME_STRAP_LEN_CM=13.8, NAME
 const BIB_W_CM=29.0, BIB_H_CM=14.5; 
 
 const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫瑰':'#ECB98D','金色':'#FEE6A8','金':'#FEE6A8','槍黑色':'#727171','槍黑':'#727171','黑':'#727171'};
-const MARGIN_CM=4.0, GAP_CM=2.0, CAPTION_PT=17, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
+const MARGIN_CM=4.0, CAPTION_PT=17, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
 const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, MAX_SPAN_CM=14.5;
 
-// 更新：文字與小圖間距縮小
 const DEFAULT_GAP_CM=0.8; 
+const GAP_CM=2.0;
 
 const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':'#E3C6C6','紫色':'#AEA2AC','紫':'#AEA2AC','綠色':'#B7BEA8','綠':'#B7BEA8','藍色':'#B8C5D6','藍':'#B8C5D6','咖啡色':'#B29E8D','咖啡':'#B29E8D','棕':'#B29E8D','棕色':'#B29E8D','卡其':'#B29E8D','黑色':'#343436','黑':'#343436','原色':'#F3EFEC','米白':'#F3EFEC','奶油白':'#F3EFEC','米色':'#F3EFEC','原':'#F3EFEC','黃色':'#ffe4a2','黃':'#ffe4a2'};
 function textColorForStrap(name){ const natural=['原色','米白','奶油白','米色','原','黃色','黃']; for(const k of natural){ if((name||'').includes(k)) return '#000'; } return '#fff'; }
 const NAME_COLORS={'白色':'#FFFFFF','白':'#FFFFFF','原色':'#F5F0EE','原':'#F5F0EE','米色':'#F5F0EE','卡其色':'#E3C6B6','卡其':'#E3C6B6','棕':'#E3C6B6','鵝黃色':'#FAE7BF','鵝黃':'#FAE7BF','黃色':'#FAE7BF','黃':'#FAE7BF','粉色':'#E2AFA8','粉':'#E2AFA8','灰色':'#C4C9CE','灰':'#C4C9CE','薄荷綠':'#CAE7E4','薄荷':'#CAE7E4','抹茶綠':'#BEBCA6','抹茶':'#BEBCA6','藍色':'#778EA2','藍':'#778EA2'};
 const NAME_TEXT_COLORS={'白色':'#000','白':'#000','原色':'#000','原':'#000','米色':'#000','卡其色':'#fff','卡其':'#fff','棕':'#fff','鵝黃色':'#000','鵝黃':'#000','黃色':'#000','黃':'#000','粉色':'#fff','粉':'#fff','灰色':'#fff','灰':'#fff','薄荷綠':'#000','薄荷':'#000','抹茶綠':'#fff','抹茶':'#fff','藍色':'#000','藍':'#000'};
 
-// 更新：粉色領巾文字顏色加深與形狀還原
 const BIB_COLORS={
   '黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'鵝黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'奶油黃':{bg:'#e7dcb8',txt:'#9b5c3a'},
   '綠':{bg:'#b3c5c2',txt:'#324741'},'薄荷綠':{bg:'#b3c5c2',txt:'#324741'},
@@ -304,15 +303,13 @@ function parseLine(line){
   return { type, text, iconNo, iconPos, colorHex, textHex, metalHex };
 }
 
-// -------- 繪圖：寶寶領巾 (更新：真·原廠 SVG 形狀還原與 Y 軸置中修正) --------
+// -------- 繪圖：寶寶領巾 --------
 async function drawBib(ctx, x, y, spec){
   const W = cm(BIB_W_CM), H = cm(BIB_H_CM);
   
-  // 更新：使用您修改後的 SVG 精確路徑
   const svgPath = "M795.6,129.2c-4.7-2.7-11.5-4.1-24.9-7c-26.3-5.5-42.7-5.9-62.9-8.9c-41.3-6.2-82.3-14.3-123.9-18.5c-9.5-1-19.2-1.3-28.6-3.3c-5.6-1.2-14.1-5.3-18.5,0.6c-2.3,3.1-3.1,7.8-4.3,11.4c-1.4,4.6-2.8,9.1-4.8,13.5c-4.1,8.8-10,16.8-16.3,24.1c-22.2,25.7-54.2,43-88.5,44.3c-33.9,1.2-66.7-13.6-90.4-37.4c-11.7-11.8-22-26-26.7-42.1c-1.5-5.2-2.4-12.3-7.2-15.7c-2.6-1.8-5.7-1.5-8.7-0.8c-4.4,1-8.6,2.4-13.1,3c-20.1,2.8-40.4,4.4-60.5,7.3c-21.1,3.1-42.1,6.4-63.2,9.8c-20.6,3.3-41.1,7-61.8,9.6c-1.4,0.2-14.9,0.3-32.1,3.5c-15.1,2.8-20.6,5.5-25,9c-6.5,5.2-9.6,11.3-13.1,18.3c-5.3,10.5-7.1,19.8-8.6,26.2c-4.6,18.7-5.9,38.2-4,57.3c3.3,34.1,16.8,68.6,40.7,93.6c12.1,12.6,26.8,22.3,43.6,27.5c18.6,5.7,38.1,6.4,57.5,7.2c8.2,0.4,17.1,0.5,24.2,5.1c7.1,4.6,10,12.8,11.7,20.7c2.1,9,3.5,18.1,6.4,26.9c2.8,8.6,6.7,16.7,11.2,24.5c17.7,30.6,45.5,54,80.4,61.9c35.1,7.9,74.3,0.5,104.2-19.3c7.2-4.8,13.2-10.6,19.9-16c6.5-5.3,12.6-6.5,19.5-1.1c15.3,11.9,29.3,24.6,47.8,31.3c33,11.8,74.1,9.7,105.8-5.4c31.7-15.1,55.6-45,64.8-78.8c3.8-14,3.1-32.8,15.1-43c6.7-5.6,15.8-6.3,24.1-6.8c14.9-0.9,22.6-1.9,31.1-2.5c26.7-2,46.6-15.1,52.8-19.1c18.9-12.4,29-27.3,34.8-36.1c31-46.7,25.2-96.9,23.8-107.3C825.8,179.7,821.1,143.6,795.6,129.2z";
   const p = new Path2D(svgPath);
 
-  // SVG 基準寬度 841.9 單位
   const baseSvgW = 841.9;
   const scale = W / baseSvgW; 
   
@@ -320,20 +317,18 @@ async function drawBib(ctx, x, y, spec){
   ctx.translate(x + W/2, y + H/2);
   ctx.scale(scale, scale);
   
-  // 校正 SVG 的絕對座標偏移
   ctx.translate(-421, -298); 
 
   ctx.fillStyle = spec.colorHex || '#e7dcb8';
   ctx.fill(p);
   
   ctx.strokeStyle = darken(spec.colorHex, 0.9);
-  ctx.lineWidth = cm(0.06) / scale; // 確保描邊粗細一致
+  ctx.lineWidth = cm(0.06) / scale; 
   ctx.stroke(p);
   ctx.restore();
 
-  // 更新：刺繡範圍中心點垂直位置修正（往上調整）
-  // 📍 您可以在這裡自行調整 Y 軸置中位置的 cm 數值
-  const centerY = cm(8.8); 
+  // 📍 修正：加入 y 變數確保多條領巾能正確排列，您可以在這裡自行微調數值（數字越小越上面）
+  const centerY = y + cm(9.1); 
   const centerX = x + W / 2;
 
   const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
@@ -414,7 +409,7 @@ async function drawLuggageStrap(ctx,x,y,spec){
     ctx.save(); ctx.setLineDash([cm(0.2), cm(0.2)]); ctx.lineWidth=cm(0.06);
     ctx.strokeStyle='rgba(43,164,247,0.95)';
     ctx.beginPath(); ctx.moveTo(leftGuide,topY); ctx.lineTo(leftGuide,botY);
-    ctx.moveTo(rightGuide,topY); ctx.lineTo(rightGuide,botY); stroke();
+    ctx.moveTo(rightGuide,topY); ctx.lineTo(rightGuide,botY); ctx.stroke();
     ctx.restore();
   }
 
