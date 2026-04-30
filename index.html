@@ -330,7 +330,7 @@ async function drawBib(ctx, x, y, spec){
   ctx.stroke(p);
   ctx.restore();
 
-  const centerY = y + cm(9.1); 
+  const centerY = y + cm(8); 
   const centerX = x + W / 2;
 
   const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
