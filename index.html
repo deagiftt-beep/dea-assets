@@ -118,7 +118,9 @@ const NAME_TOTAL_LEN_CM=16.15, NAME_CLIP_W_CM=2.35, NAME_STRAP_LEN_CM=13.8, NAME
 const BIB_W_CM=29.0, BIB_H_CM=14.5; 
 
 const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫瑰':'#ECB98D','金色':'#FEE6A8','金':'#FEE6A8','槍黑色':'#727171','槍黑':'#727171','黑':'#727171'};
-const MARGIN_CM=4.0, CAPTION_PT=17, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
+
+// ★ 修改1：CAPTION_PT 由 17 改為 19
+const MARGIN_CM=4.0, CAPTION_PT=19, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
 const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, MAX_SPAN_CM=14.5;
 
 const DEFAULT_GAP_CM=0.8; 
@@ -127,9 +129,7 @@ const GAP_CM=2.0;
 const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':'#E3C6C6','紫色':'#AEA2AC','紫':'#AEA2AC','綠色':'#B7BEA8','綠':'#B7BEA8','藍色':'#B8C5D6','藍':'#B8C5D6','咖啡色':'#B29E8D','咖啡':'#B29E8D','棕':'#B29E8D','棕色':'#B29E8D','卡其':'#B29E8D','黑色':'#343436','黑':'#343436','原色':'#F3EFEC','米白':'#F3EFEC','奶油白':'#F3EFEC','米色':'#F3EFEC','原':'#F3EFEC','黃色':'#ffe4a2','黃':'#ffe4a2'};
 function textColorForStrap(name){ const natural=['原色','米白','奶油白','米色','原','黃色','黃']; for(const k of natural){ if((name||'').includes(k)) return '#000'; } return '#fff'; }
 
-// 更新：姓名織帶加入「綠色」與「綠」防呆，對應抹茶綠的色號 #BEBCA6
 const NAME_COLORS={'白色':'#FFFFFF','白':'#FFFFFF','原色':'#F5F0EE','原':'#F5F0EE','米色':'#F5F0EE','卡其色':'#E3C6B6','卡其':'#E3C6B6','棕':'#E3C6B6','鵝黃色':'#FAE7BF','鵝黃':'#FAE7BF','黃色':'#FAE7BF','黃':'#FAE7BF','粉色':'#E2AFA8','粉':'#E2AFA8','灰色':'#C4C9CE','灰':'#C4C9CE','薄荷綠':'#CAE7E4','薄荷':'#CAE7E4','抹茶綠':'#BEBCA6','抹茶':'#BEBCA6','綠色':'#BEBCA6','綠':'#BEBCA6','藍色':'#778EA2','藍':'#778EA2'};
-// 更新：文字顏色也一併補上白字防呆
 const NAME_TEXT_COLORS={'白色':'#000','白':'#000','原色':'#000','原':'#000','米色':'#000','卡其色':'#fff','卡其':'#fff','棕':'#fff','鵝黃色':'#000','鵝黃':'#000','黃色':'#000','黃':'#000','粉色':'#fff','粉':'#fff','灰色':'#fff','灰':'#fff','薄荷綠':'#000','薄荷':'#000','抹茶綠':'#fff','抹茶':'#fff','綠色':'#fff','綠':'#fff','藍色':'#000','藍':'#000'};
 
 const BIB_COLORS={
@@ -142,7 +142,9 @@ const BIB_COLORS={
   '灰':{bg:'#554f4d',txt:'#ffffff'},'石墨灰':{bg:'#554f4d',txt:'#ffffff'}
 };
 
+// ★ 修改2：captionText 陣列最前面新增色差說明那一條
 let captionText=[
+'請注意，因不同螢幕顯示顏色與肉眼的色彩敏感度不同，模擬圖無法 100% 還原成品的色彩與光澤，若您介意圖案與織帶顏色接近，請更換小圖或織帶顏色，謝謝您的理解。',
 '• 此模擬圖僅供確認所選的顏色、文字與小圖是否正確，實際的文字與小圖的比例、刺繡線色……等均以成品為準。',
 '• 織帶的纖維密度比布料鬆，因此難免出現微微露出織帶底色的情況，如刺繡的針線密度增加過多反而會因為圖案太硬導致嚴重變形，敬請理解包涵。',
 '• 因刺繡的工藝限制與公差，成品可能受到布料張力等變數的影響，出現上述的些微變形是正常現象，但織帶材質是軟的，可使用手指稍微扭動繡圖進行調整。',
@@ -319,7 +321,6 @@ async function drawBib(ctx, x, y, spec){
   ctx.save();
   ctx.translate(x + W/2, y + H/2);
   ctx.scale(scale, scale);
-  
   ctx.translate(-421, -298); 
 
   ctx.fillStyle = spec.colorHex || '#e7dcb8';
@@ -504,26 +505,36 @@ async function drawNameStrap(ctx,x,y,spec){
 }
 
 // -------- 注意事項換行 --------
+// 每行回傳 {text, isFirst} ── 第一段落標記 isFirst:true 以便醒目渲染
+const CAP_BOX_PAD_X = 18; // 色條右側到文字的內距(px)
+const CAP_BOX_PAD_Y = 14; // 上下內距(px)
+const CAP_BAR_W     = 7;  // 左側色條寬(px)
+const CAP_BOX_AFTER = 16; // highlight box 與後續文字的間距(px)
+
 function wrapCaption(ctx, text, maxWidth){
   if(!text) return [];
   const paras = text.split(/\n/);
   const allLines=[];
-  for(let p of paras){
-    if(!p.trim()){ allLines.push(''); continue; }
+  for(let pi=0; pi<paras.length; pi++){
+    let p = paras[pi];
+    const isFirst = (pi === 0);
+    // 第一段需扣除色條寬度與內距
+    const effectiveMaxW = isFirst ? maxWidth - CAP_BAR_W - CAP_BOX_PAD_X * 2 : maxWidth;
+    if(!p.trim()){ allLines.push({text:'', isFirst:false}); continue; }
     let bullet=false;
     if(/^\s*•\s*/.test(p)){ bullet=true; p = p.replace(/^\s*•\s*/, ''); }
     let line = bullet ? '• ' : '';
     for(const ch of [...p]){
       const test = line + ch;
-      if(ctx.measureText(test).width > maxWidth && line.trim()!==''){
+      if(ctx.measureText(test).width > effectiveMaxW && line.trim()!==''){
         if(line.trim()==='•'){ line = test; continue; }
-        allLines.push(line);
+        allLines.push({text:line, isFirst});
         line = ch;
       }else{
         line = test;
       }
     }
-    if(line) allLines.push(line);
+    if(line) allLines.push({text:line, isFirst});
   }
   return allLines;
 }
@@ -557,7 +568,9 @@ async function layoutAndRender(){
   const maxW=canvasW - margin*2;
   const capLines=wrapCaption(ctx, capText, maxW);
   const capLH=CAPTION_PX + 10;
-  const captionH= capText ? capLines.length*capLH : 0;
+  const firstCount = capLines.filter(l=>l.isFirst).length;
+  // highlight box 高度 = 行數×行高 + 上下padding + 與後續文字間距；其餘行高照常
+  const captionH= capText ? (firstCount * capLH + CAP_BOX_PAD_Y * 2 + CAP_BOX_AFTER + (capLines.length - firstCount) * capLH) : 0;
 
   const canvasH=Math.round(margin + totalH + (capText ? cm(CAPTION_GAP_CM):0) + captionH + cm(BOTTOM_AFTER_CAP_CM));
   sheet.width=canvasW; sheet.height=canvasH; ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvasW,canvasH);
@@ -583,9 +596,82 @@ async function layoutAndRender(){
   }
 
   if(capText){
-    const startY=curY-gap+cm(CAPTION_GAP_CM);
-    ctx.save(); ctx.font=ctxFont; ctx.fillStyle='#262626'; ctx.textBaseline='top';
-    let y=startY; for(const ln of capLines){ ctx.fillText(ln, margin, y); y+=capLH; }
+    const startY = curY - gap + cm(CAPTION_GAP_CM);
+    ctx.save();
+    ctx.font = ctxFont;
+    ctx.textBaseline = 'top';
+
+    // ── 第一段落：橙色 highlight box ──
+    const firstLines = capLines.filter(l => l.isFirst);
+    const restLines  = capLines.filter(l => !l.isFirst);
+
+    if(firstLines.length > 0){
+      const boxX = margin;
+      const boxW = canvasW - margin * 2;
+      const blockH = firstLines.length * capLH + CAP_BOX_PAD_Y * 2;
+      const rr = 10;
+
+      // 背景圓角框
+      ctx.fillStyle = '#FFF5EB';
+      ctx.beginPath();
+      ctx.moveTo(boxX + rr, startY);
+      ctx.lineTo(boxX + boxW - rr, startY);
+      ctx.quadraticCurveTo(boxX + boxW, startY, boxX + boxW, startY + rr);
+      ctx.lineTo(boxX + boxW, startY + blockH - rr);
+      ctx.quadraticCurveTo(boxX + boxW, startY + blockH, boxX + boxW - rr, startY + blockH);
+      ctx.lineTo(boxX + rr, startY + blockH);
+      ctx.quadraticCurveTo(boxX, startY + blockH, boxX, startY + blockH - rr);
+      ctx.lineTo(boxX, startY + rr);
+      ctx.quadraticCurveTo(boxX, startY, boxX + rr, startY);
+      ctx.closePath();
+      ctx.fill();
+
+      // 左側橙色色條（圓角只在左側）
+      ctx.fillStyle = '#F29027';
+      ctx.beginPath();
+      ctx.moveTo(boxX, startY + rr);
+      ctx.lineTo(boxX, startY + blockH - rr);
+      ctx.quadraticCurveTo(boxX, startY + blockH, boxX + rr, startY + blockH);
+      ctx.lineTo(boxX + CAP_BAR_W, startY + blockH);
+      ctx.lineTo(boxX + CAP_BAR_W, startY);
+      ctx.lineTo(boxX + rr, startY);
+      ctx.quadraticCurveTo(boxX, startY, boxX, startY + rr);
+      ctx.closePath();
+      ctx.fill();
+
+      // 框線（淡橙）
+      ctx.strokeStyle = '#F5B86A';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(boxX + rr, startY);
+      ctx.lineTo(boxX + boxW - rr, startY);
+      ctx.quadraticCurveTo(boxX + boxW, startY, boxX + boxW, startY + rr);
+      ctx.lineTo(boxX + boxW, startY + blockH - rr);
+      ctx.quadraticCurveTo(boxX + boxW, startY + blockH, boxX + boxW - rr, startY + blockH);
+      ctx.lineTo(boxX + rr, startY + blockH);
+      ctx.quadraticCurveTo(boxX, startY + blockH, boxX, startY + blockH - rr);
+      ctx.lineTo(boxX, startY + rr);
+      ctx.quadraticCurveTo(boxX, startY, boxX + rr, startY);
+      ctx.closePath();
+      ctx.stroke();
+
+      // 文字（深橙棕）
+      ctx.fillStyle = '#7C3500';
+      let ty = startY + CAP_BOX_PAD_Y;
+      for(const fl of firstLines){
+        ctx.fillText(fl.text, boxX + CAP_BAR_W + CAP_BOX_PAD_X, ty);
+        ty += capLH;
+      }
+    }
+
+    // ── 其餘段落：一般灰色 ──
+    ctx.fillStyle = '#262626';
+    let y = startY + (firstLines.length > 0 ? firstLines.length * capLH + CAP_BOX_PAD_Y * 2 + CAP_BOX_AFTER : 0);
+    for(const ln of restLines){
+      ctx.fillText(ln.text, margin, y);
+      y += capLH;
+    }
+
     ctx.restore();
   }
 
