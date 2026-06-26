@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v13.9）</title>
+<title>行李飄帶/姓名織帶/寶寶領巾 模擬工具（v14.0）</title>
 <style>
   :root { --cm: 50; --accent: #F29027; }
   * { box-sizing: border-box; }
@@ -23,7 +23,18 @@
   button.accent { background:var(--accent); color:#fff; }
   .muted { color:#666; font-size:12px; }
   .status { font-size:12px; color:#4b5563; margin-left:8px; min-height:1.2em; }
-  
+
+  /* 帳號輸入框 + 儲存區（新增） */
+  .save-box { margin-top:14px; padding:12px; border:1px solid #ffe0c0; background:#fffaf3; border-radius:12px; }
+  .save-box label { margin-top:0; color:#b45309; }
+  .save-box input[type=text] { width:100%; padding:9px 11px; border:1px solid #eaeaea; border-radius:10px; font-size:14px; }
+  .save-box input[type=text]:focus { outline:2px solid var(--accent); border-color:var(--accent); }
+  .save-box .save-row { display:flex; gap:8px; margin-top:10px; align-items:center; }
+  #saveRecordBtn { background:#0d9488; flex:1; }
+  #saveRecordBtn:hover { background:#0f766e; }
+  #saveRecordBtn:disabled { opacity:.5; cursor:not-allowed; }
+  #saveRecordStatus { font-size:12px; min-height:1.2em; font-weight:700; }
+
   .switch { position:relative; display:inline-block; width:44px; height:24px; }
   .switch input { display:none; }
   .slider { position:absolute; inset:0; background:#ddd; border-radius:999px; transition:.2s; }
@@ -43,18 +54,18 @@
 
   @media (max-width: 800px) {
     body { padding: 12px; }
-    .app { grid-template-columns: 1fr; } 
+    .app { grid-template-columns: 1fr; }
     textarea { height: 160px; }
-    button { padding: 8px 10px; font-size: 13px; } 
-    .row { gap: 6px; } 
-    #editCaptionBtn { margin-left: 0 !important; } 
+    button { padding: 8px 10px; font-size: 13px; }
+    .row { gap: 6px; }
+    #editCaptionBtn { margin-left: 0 !important; }
   }
 </style>
 </head>
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v13.9 綠色判定修正）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.0 含登記功能）</h1>
 </header>
 
 <div class="app">
@@ -77,11 +88,30 @@
 
     <div class="muted" style="margin-top:6px;">手機操作提醒：圖檔產生後，直接「長按右方圖片」即可儲存或拷貝。</div>
 
+    <!-- ===== 新增：客人帳號 + 儲存模擬圖資料 ===== -->
+    <div class="save-box">
+      <label>客人蝦皮帳號（登記用）</label>
+      <input type="text" id="custAccount" placeholder="例如 mku170314">
+      <div class="save-row">
+        <button id="saveRecordBtn">🧵 儲存模擬圖資料</button>
+        <span id="saveRecordStatus"></span>
+      </div>
+      <div class="muted" style="margin-top:8px; line-height:1.5;">
+        會把「上方處理框的內容」當作製作內容，連同帳號存到刺繡訂單系統。<br>
+        之後比對工具就能自動帶入，師傅看到的就是這份。
+      </div>
+    </div>
+    <!-- ===== 新增結束 ===== -->
+
     <div class="section-title">連線狀態</div>
     <div class="row">
       <input id="githubBaseUrl" style="display:none;" value="https://deagiftt-beep.github.io/dea-assets" />
       <span id="systemStatus" class="status" style="margin-left:0; color:var(--accent); font-weight:bold; font-size:14px;">⏳ 正在連線下載雲端字體...</span>
     </div>
+
+    <!-- 新增：GAS 網址設定（折疊在連線狀態下方） -->
+    <label style="margin-top:12px; color:#999; font-size:11px;">登記系統 API 網址（第一次設定後會自動記住）</label>
+    <input type="text" id="gasUrl" style="width:100%; padding:7px 9px; border:1px solid #eaeaea; border-radius:8px; font-size:11px; color:#666;" placeholder="貼上報價系統的 GAS 部署網址 (exec 結尾)">
 
     <label style="margin-top:16px; color:#999;">備用：若雲端異常，可手動上傳本機字體</label>
     <input type="file" id="fontInput" accept=".ttf,.otf" style="font-size:12px;" />
@@ -115,15 +145,14 @@ function lighten(hex,ratio=1.15){ if(!hex||!hex.startsWith('#'))return hex; let 
 
 const STRAP_LEN_CM=26.5, STRAP_W_CM=3.8, HOLE_D_CM=1.2, HOLE1_X_CM=4.2, HOLE2_X_CM=6.0, TAIL_DARK_CM=0.2;
 const NAME_TOTAL_LEN_CM=16.15, NAME_CLIP_W_CM=2.35, NAME_STRAP_LEN_CM=13.8, NAME_W_CM=3.2, NAME_ICON_H_CM=2.5, NAME_SCALE=0.75;
-const BIB_W_CM=29.0, BIB_H_CM=14.5; 
+const BIB_W_CM=29.0, BIB_H_CM=14.5;
 
 const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫瑰':'#ECB98D','金色':'#FEE6A8','金':'#FEE6A8','槍黑色':'#727171','槍黑':'#727171','黑':'#727171'};
 
-// ★ 修改1：CAPTION_PT 由 17 改為 19
 const MARGIN_CM=4.0, CAPTION_PT=19, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
 const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, MAX_SPAN_CM=14.5;
 
-const DEFAULT_GAP_CM=0.8; 
+const DEFAULT_GAP_CM=0.8;
 const GAP_CM=2.0;
 
 const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':'#E3C6C6','紫色':'#AEA2AC','紫':'#AEA2AC','綠色':'#B7BEA8','綠':'#B7BEA8','藍色':'#B8C5D6','藍':'#B8C5D6','咖啡色':'#B29E8D','咖啡':'#B29E8D','棕':'#B29E8D','棕色':'#B29E8D','卡其':'#B29E8D','黑色':'#343436','黑':'#343436','原色':'#F3EFEC','米白':'#F3EFEC','奶油白':'#F3EFEC','米色':'#F3EFEC','原':'#F3EFEC','黃色':'#ffe4a2','黃':'#ffe4a2'};
@@ -142,7 +171,6 @@ const BIB_COLORS={
   '灰':{bg:'#554f4d',txt:'#ffffff'},'石墨灰':{bg:'#554f4d',txt:'#ffffff'}
 };
 
-// ★ 修改2：captionText 陣列最前面新增色差說明那一條
 let captionText=[
 '請注意，因不同螢幕顯示顏色與肉眼的色彩敏感度不同，模擬圖無法 100% 還原成品的色彩與光澤，若您介意圖案與織帶顏色接近，請更換小圖或織帶顏色，謝謝您的理解。',
 '• 此模擬圖僅供確認所選的顏色、文字與小圖是否正確，實際的文字與小圖的比例、刺繡線色……等均以成品為準。',
@@ -165,6 +193,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   } catch(e) {
     statusEl.textContent = '⚠️ 字體載入較慢或失敗，不影響產圖，若字體有誤可手動上傳備用。';
   }
+
+  // 讀取記住的 GAS 網址
+  try {
+    var saved = window.localStorage ? localStorage.getItem('dea_gas_url') : '';
+    if (saved) document.getElementById('gasUrl').value = saved;
+  } catch(e) {}
+});
+
+// 記住 GAS 網址
+document.getElementById('gasUrl').addEventListener('change', function() {
+  try { if (window.localStorage) localStorage.setItem('dea_gas_url', this.value.trim()); } catch(e) {}
 });
 
 document.getElementById('guideToggle').addEventListener('change', e=>{ showGuides = e.target.checked; });
@@ -231,7 +270,7 @@ async function loadIconImage(number){
     try {
       const img = await new Promise((resolve, reject) => {
         const im = new Image();
-        im.crossOrigin = "anonymous"; 
+        im.crossOrigin = "anonymous";
         im.onload = () => resolve(im);
         im.onerror = () => reject();
         im.src = url;
@@ -245,7 +284,7 @@ async function loadIconImage(number){
 
 function parseLine(line){
   let src = cleanStartNumbering((line||'').trim()); if(!src) return null;
-  
+
   let isBib = false;
   const bibMatch = src.match(/^[bBｂＢ]\s*[+＋\s]?\s*(.*)/);
   if(bibMatch) {
@@ -261,7 +300,7 @@ function parseLine(line){
   }
 
   const tokensAll = tokenizeFlexible(src);
-  const isNameStrap = !isBib && tokensAll.length >= 4; 
+  const isNameStrap = !isBib && tokensAll.length >= 4;
   let tokens = tokensAll.slice();
   let colorHex='#ccc', textHex='#fff', metalHex=null, colorToken=null;
 
@@ -308,38 +347,31 @@ function parseLine(line){
   return { type, text, iconNo, iconPos, colorHex, textHex, metalHex };
 }
 
-// -------- 繪圖：寶寶領巾 --------
 async function drawBib(ctx, x, y, spec){
   const W = cm(BIB_W_CM), H = cm(BIB_H_CM);
-  
   const svgPath = "M795.6,129.2c-4.7-2.7-11.5-4.1-24.9-7c-26.3-5.5-42.7-5.9-62.9-8.9c-41.3-6.2-82.3-14.3-123.9-18.5c-9.5-1-19.2-1.3-28.6-3.3c-5.6-1.2-14.1-5.3-18.5,0.6c-2.3,3.1-3.1,7.8-4.3,11.4c-1.4,4.6-2.8,9.1-4.8,13.5c-4.1,8.8-10,16.8-16.3,24.1c-22.2,25.7-54.2,43-88.5,44.3c-33.9,1.2-66.7-13.6-90.4-37.4c-11.7-11.8-22-26-26.7-42.1c-1.5-5.2-2.4-12.3-7.2-15.7c-2.6-1.8-5.7-1.5-8.7-0.8c-4.4,1-8.6,2.4-13.1,3c-20.1,2.8-40.4,4.4-60.5,7.3c-21.1,3.1-42.1,6.4-63.2,9.8c-20.6,3.3-41.1,7-61.8,9.6c-1.4,0.2-14.9,0.3-32.1,3.5c-15.1,2.8-20.6,5.5-25,9c-6.5,5.2-9.6,11.3-13.1,18.3c-5.3,10.5-7.1,19.8-8.6,26.2c-4.6,18.7-5.9,38.2-4,57.3c3.3,34.1,16.8,68.6,40.7,93.6c12.1,12.6,26.8,22.3,43.6,27.5c18.6,5.7,38.1,6.4,57.5,7.2c8.2,0.4,17.1,0.5,24.2,5.1c7.1,4.6,10,12.8,11.7,20.7c2.1,9,3.5,18.1,6.4,26.9c2.8,8.6,6.7,16.7,11.2,24.5c17.7,30.6,45.5,54,80.4,61.9c35.1,7.9,74.3,0.5,104.2-19.3c7.2-4.8,13.2-10.6,19.9-16c6.5-5.3,12.6-6.5,19.5-1.1c15.3,11.9,29.3,24.6,47.8,31.3c33,11.8,74.1,9.7,105.8-5.4c31.7-15.1,55.6-45,64.8-78.8c3.8-14,3.1-32.8,15.1-43c6.7-5.6,15.8-6.3,24.1-6.8c14.9-0.9,22.6-1.9,31.1-2.5c26.7-2,46.6-15.1,52.8-19.1c18.9-12.4,29-27.3,34.8-36.1c31-46.7,25.2-96.9,23.8-107.3C825.8,179.7,821.1,143.6,795.6,129.2z";
   const p = new Path2D(svgPath);
-
   const baseSvgW = 841.9;
-  const scale = W / baseSvgW; 
-  
+  const scale = W / baseSvgW;
+
   ctx.save();
   ctx.translate(x + W/2, y + H/2);
   ctx.scale(scale, scale);
-  ctx.translate(-421, -298); 
-
+  ctx.translate(-421, -298);
   ctx.fillStyle = spec.colorHex || '#e7dcb8';
   ctx.fill(p);
-  
   ctx.strokeStyle = darken(spec.colorHex, 0.9);
-  ctx.lineWidth = cm(0.06) / scale; 
+  ctx.lineWidth = cm(0.06) / scale;
   ctx.stroke(p);
   ctx.restore();
 
-  const centerY = y + cm(8); 
+  const centerY = y + cm(8);
   const centerX = x + W / 2;
-
   const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
   const textW = runs.totalWidth;
   const iconH = cm(NAME_ICON_H_CM), iconW = iconH;
   let gap = cm(DEFAULT_GAP_CM);
-
-  const areaMax = cm(10.0); 
+  const areaMax = cm(10.0);
   let total = textW + (spec.iconNo ? (gap + iconW) : 0);
   if (spec.iconNo && total > areaMax) {
     gap = Math.max(0, areaMax - (textW + iconW));
@@ -367,20 +399,19 @@ async function drawBib(ctx, x, y, spec){
     iconX = startX + textW + gap;
   }
 
-  ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle = spec.textHex || '#000'; 
+  ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle = spec.textHex || '#000';
   let curX = textStartX;
-  for(const r2 of runs.runs){ 
-    ctx.font = r2.fontPx+"px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif"; 
-    if(r2.text.trim()) ctx.fillText(r2.text, curX, centerY + r2.shiftPx); 
-    curX += r2.width; 
+  for(const r2 of runs.runs){
+    ctx.font = r2.fontPx+"px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif";
+    if(r2.text.trim()) ctx.fillText(r2.text, curX, centerY + r2.shiftPx);
+    curX += r2.width;
   }
-  if(spec.iconNo){ 
-    const img = await loadIconImage(spec.iconNo); 
-    if(img){ ctx.drawImage(img, iconX, centerY - iconH/2, iconW, iconH); } 
+  if(spec.iconNo){
+    const img = await loadIconImage(spec.iconNo);
+    if(img){ ctx.drawImage(img, iconX, centerY - iconH/2, iconW, iconH); }
   }
 }
 
-// -------- 繪圖：行李飄帶 --------
 async function drawLuggageStrap(ctx,x,y,spec){
   const L=cm(STRAP_LEN_CM), W=cm(STRAP_W_CM);
   ctx.save(); ctx.translate(x,y);
@@ -396,12 +427,12 @@ async function drawLuggageStrap(ctx,x,y,spec){
   const runs=measureTextRuns(ctx, segmentTextRuns((spec.text||'').trim()));
   const textW=runs.totalWidth;
   const iconH=cm(DEFAULT_ICON_H_CM), iconW=iconH; let gap=cm(DEFAULT_GAP_CM), max=cm(MAX_SPAN_CM);
-  
-  let total=textW+(spec.iconNo?(gap+iconW):0); 
+
+  let total=textW+(spec.iconNo?(gap+iconW):0);
   if(total>max && spec.iconNo){ gap=Math.max(0,max-(textW+iconW)); total=textW+gap+iconW; }
-  
-  let startX=centerCandidate-total/2; 
-  if(startX<usableStart) startX=usableStart; 
+
+  let startX=centerCandidate-total/2;
+  if(startX<usableStart) startX=usableStart;
   if(startX+total>usableEnd) startX=Math.max(usableStart, usableEnd-total);
   const centerX = startX + total/2;
 
@@ -425,14 +456,13 @@ async function drawLuggageStrap(ctx,x,y,spec){
     iconX = startX + textW + gap;
   }
 
-  const baseline=W/2; ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle=spec.textHex||'#fff'; 
+  const baseline=W/2; ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle=spec.textHex||'#fff';
   let curX = textStartX;
   for(const r2 of runs.runs){ ctx.font=r2.fontPx+"px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif"; if(r2.text.trim()) ctx.fillText(r2.text, curX, baseline+r2.shiftPx); curX+=r2.width; }
   if(spec.iconNo){ const img=await loadIconImage(spec.iconNo); if(img){ ctx.drawImage(img, iconX, W/2-iconH/2, iconW, iconH);} }
   ctx.restore();
 }
 
-// -------- 繪圖：姓名織帶 --------
 async function drawNameStrap(ctx,x,y,spec){
   const L=cm(NAME_TOTAL_LEN_CM), W=cm(NAME_W_CM);
   const clipTotal=cm(NAME_CLIP_W_CM), cPartW=cm(1.15), clampW=cm(1.20), strapLen=cm(NAME_STRAP_LEN_CM);
@@ -497,19 +527,17 @@ async function drawNameStrap(ctx,x,y,spec){
     iconX = startX + textW + gap;
   }
 
-  const baseline=W/2; ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle=spec.textHex||'#000'; 
+  const baseline=W/2; ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle=spec.textHex||'#000';
   let curX = textStartX;
   for(const r2 of runs.runs){ ctx.font=r2.fontPx+"px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif"; if(r2.text.trim()) ctx.fillText(r2.text, curX, baseline+r2.shiftPx); curX+=r2.width; }
   if(spec.iconNo){ const img=await loadIconImage(spec.iconNo); if(img){ ctx.drawImage(img, iconX, W/2-iconH/2, iconW, iconH);} }
   ctx.restore();
 }
 
-// -------- 注意事項換行 --------
-// 每行回傳 {text, isFirst} ── 第一段落標記 isFirst:true 以便醒目渲染
-const CAP_BOX_PAD_X = 18; // 色條右側到文字的內距(px)
-const CAP_BOX_PAD_Y = 14; // 上下內距(px)
-const CAP_BAR_W     = 7;  // 左側色條寬(px)
-const CAP_BOX_AFTER = 16; // highlight box 與後續文字的間距(px)
+const CAP_BOX_PAD_X = 18;
+const CAP_BOX_PAD_Y = 14;
+const CAP_BAR_W     = 7;
+const CAP_BOX_AFTER = 16;
 
 function wrapCaption(ctx, text, maxWidth){
   if(!text) return [];
@@ -518,7 +546,6 @@ function wrapCaption(ctx, text, maxWidth){
   for(let pi=0; pi<paras.length; pi++){
     let p = paras[pi];
     const isFirst = (pi === 0);
-    // 第一段需扣除色條寬度與內距
     const effectiveMaxW = isFirst ? maxWidth - CAP_BAR_W - CAP_BOX_PAD_X * 2 : maxWidth;
     if(!p.trim()){ allLines.push({text:'', isFirst:false}); continue; }
     let bullet=false;
@@ -539,7 +566,6 @@ function wrapCaption(ctx, text, maxWidth){
   return allLines;
 }
 
-// -------- 版面/渲染 --------
 async function layoutAndRender(){
   try{ await document.fonts.load("16px 'ZhiDai'"); }catch(e){}
   const sheet=document.getElementById('sheet'); const ctx=sheet.getContext('2d');
@@ -547,10 +573,10 @@ async function layoutAndRender(){
   const lines=splitLines(raw).slice(0,10);
   const parsed=lines.map(parseLine).filter(p=>p&&(p.text||p.iconNo||p.colorHex));
   const n=Math.max(0,Math.min(10,parsed.length));
-  
+
   const placeholder = document.getElementById('placeholderText');
   const previewImg = document.getElementById('previewImg');
-  
+
   if (n === 0) {
     previewImg.style.display = 'none';
     placeholder.style.display = 'inline-block';
@@ -561,7 +587,7 @@ async function layoutAndRender(){
   const heights = parsed.map(p => p.type === 'bib' ? cm(BIB_H_CM) : (p.type === 'name' ? cm(NAME_W_CM) : cm(STRAP_W_CM)));
   const totalH = heights.reduce((a,b)=>a+b,0) + gap*Math.max(0,n-1);
   const canvasW = Math.round(margin*2 + Math.max(cm(STRAP_LEN_CM), cm(NAME_TOTAL_LEN_CM), cm(BIB_W_CM)));
-  
+
   const capText=captionText||'';
   const ctxFont=CAPTION_PX+"px system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei'";
   ctx.font=ctxFont;
@@ -569,7 +595,6 @@ async function layoutAndRender(){
   const capLines=wrapCaption(ctx, capText, maxW);
   const capLH=CAPTION_PX + 10;
   const firstCount = capLines.filter(l=>l.isFirst).length;
-  // highlight box 高度 = 行數×行高 + 上下padding + 與後續文字間距；其餘行高照常
   const captionH= capText ? (firstCount * capLH + CAP_BOX_PAD_Y * 2 + CAP_BOX_AFTER + (capLines.length - firstCount) * capLH) : 0;
 
   const canvasH=Math.round(margin + totalH + (capText ? cm(CAPTION_GAP_CM):0) + captionH + cm(BOTTOM_AFTER_CAP_CM));
@@ -579,19 +604,18 @@ async function layoutAndRender(){
   for(let i=0;i<n;i++){
     const p=parsed[i];
     let x = margin;
-    
     if (p.type === 'bib') {
       x = Math.round((canvasW - cm(BIB_W_CM))/2);
-      await drawBib(ctx, x, curY, p); 
+      await drawBib(ctx, x, curY, p);
       curY += cm(BIB_H_CM) + gap;
-    } else if(p.type === 'name') { 
+    } else if(p.type === 'name') {
       x = Math.round((canvasW - cm(NAME_TOTAL_LEN_CM))/2);
-      await drawNameStrap(ctx, x, curY, p); 
-      curY += cm(NAME_W_CM) + gap; 
-    } else { 
+      await drawNameStrap(ctx, x, curY, p);
+      curY += cm(NAME_W_CM) + gap;
+    } else {
       x = Math.round((canvasW - cm(STRAP_LEN_CM))/2);
-      await drawLuggageStrap(ctx, x, curY, p); 
-      curY += cm(STRAP_W_CM) + gap; 
+      await drawLuggageStrap(ctx, x, curY, p);
+      curY += cm(STRAP_W_CM) + gap;
     }
   }
 
@@ -600,8 +624,6 @@ async function layoutAndRender(){
     ctx.save();
     ctx.font = ctxFont;
     ctx.textBaseline = 'top';
-
-    // ── 第一段落：橙色 highlight box ──
     const firstLines = capLines.filter(l => l.isFirst);
     const restLines  = capLines.filter(l => !l.isFirst);
 
@@ -610,8 +632,6 @@ async function layoutAndRender(){
       const boxW = canvasW - margin * 2;
       const blockH = firstLines.length * capLH + CAP_BOX_PAD_Y * 2;
       const rr = 10;
-
-      // 背景圓角框
       ctx.fillStyle = '#FFF5EB';
       ctx.beginPath();
       ctx.moveTo(boxX + rr, startY);
@@ -625,8 +645,6 @@ async function layoutAndRender(){
       ctx.quadraticCurveTo(boxX, startY, boxX + rr, startY);
       ctx.closePath();
       ctx.fill();
-
-      // 左側橙色色條（圓角只在左側）
       ctx.fillStyle = '#F29027';
       ctx.beginPath();
       ctx.moveTo(boxX, startY + rr);
@@ -638,8 +656,6 @@ async function layoutAndRender(){
       ctx.quadraticCurveTo(boxX, startY, boxX, startY + rr);
       ctx.closePath();
       ctx.fill();
-
-      // 框線（淡橙）
       ctx.strokeStyle = '#F5B86A';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -654,8 +670,6 @@ async function layoutAndRender(){
       ctx.quadraticCurveTo(boxX, startY, boxX + rr, startY);
       ctx.closePath();
       ctx.stroke();
-
-      // 文字（深橙棕）
       ctx.fillStyle = '#7C3500';
       let ty = startY + CAP_BOX_PAD_Y;
       for(const fl of firstLines){
@@ -663,15 +677,12 @@ async function layoutAndRender(){
         ty += capLH;
       }
     }
-
-    // ── 其餘段落：一般灰色 ──
     ctx.fillStyle = '#262626';
     let y = startY + (firstLines.length > 0 ? firstLines.length * capLH + CAP_BOX_PAD_Y * 2 + CAP_BOX_AFTER : 0);
     for(const ln of restLines){
       ctx.fillText(ln.text, margin, y);
       y += capLH;
     }
-
     ctx.restore();
   }
 
@@ -680,7 +691,6 @@ async function layoutAndRender(){
   placeholder.style.display = 'none';
 }
 
-// -------- 匯出/複製 --------
 async function canvasToUnder2MB(canvas){
   const blobPng=await new Promise(res=>canvas.toBlob(res,'image/png'));
   if(blobPng && blobPng.size<2_000_000) return {blob:blobPng,type:'image/png'};
@@ -702,7 +712,6 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     return;
   }
   newWin.document.write('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0; background:#333; display:flex; justify-content:center; align-items:flex-start;"><div style="color:#fff; padding:20px; font-family:sans-serif;">圖片產生中...請稍候</div></body>');
-  
   layoutAndRender().then(() => {
     const dataUrl = document.getElementById('sheet').toDataURL('image/jpeg', 0.95);
     newWin.document.body.innerHTML = '<img src="' + dataUrl + '" style="width:100%; max-width:1000px; height:auto; display:block; margin:0 auto;">';
@@ -710,15 +719,15 @@ document.getElementById('saveBtn').addEventListener('click', () => {
 });
 
 document.getElementById('copyBtn').addEventListener('click', async ()=>{
-  const status=document.getElementById('copyStatus'); 
+  const status=document.getElementById('copyStatus');
   await layoutAndRender();
   const c=document.getElementById('sheet');
   const {blob,type}=await canvasToUnder2MB(c);
-  try{ 
-    await navigator.clipboard.write([new ClipboardItem({[type]:blob})]); 
-    status.textContent='已複製！'; 
-  } catch(e) { 
-    status.textContent='手機請直接長按圖片'; 
+  try{
+    await navigator.clipboard.write([new ClipboardItem({[type]:blob})]);
+    status.textContent='已複製！';
+  } catch(e) {
+    status.textContent='手機請直接長按圖片';
   }
   setTimeout(()=>{ status.textContent=''; }, 2000);
 });
@@ -729,6 +738,73 @@ document.getElementById('closeModal').addEventListener('click',()=> modal.style.
 document.getElementById('saveCaption').addEventListener('click',()=>{ captionText=document.getElementById('captionEditor').value||''; modal.style.display='none'; });
 
 document.getElementById('orders').value="黑+Maico+1\n黃+金+小麥+20\n綠色+20+咪咪";
+
+/* ===== 新增：儲存模擬圖資料到刺繡系統 ===== */
+document.getElementById('saveRecordBtn').addEventListener('click', function() {
+  var account = document.getElementById('custAccount').value.trim();
+  var content = document.getElementById('orders').value.trim();  // 處理框當下的內容
+  var statusEl = document.getElementById('saveRecordStatus');
+  var btn = this;
+
+  if (!account) {
+    statusEl.style.color = '#dc2626';
+    statusEl.textContent = '請先填客人帳號';
+    return;
+  }
+  if (!content) {
+    statusEl.style.color = '#dc2626';
+    statusEl.textContent = '處理框是空的';
+    return;
+  }
+
+  var url = document.getElementById('gasUrl').value.trim();
+  if (!url) {
+    statusEl.style.color = '#dc2626';
+    statusEl.textContent = '請先設定下方 API 網址';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.style.color = '#0d9488';
+  statusEl.textContent = '儲存中...';
+
+  jsonpCall(url, 'saveMockupRecord', [{ account: account, content: content }], function(res) {
+    btn.disabled = false;
+    if (res && res.success) {
+      statusEl.style.color = '#0d9488';
+      statusEl.textContent = '✅ ' + res.msg;
+      // 成功後清空帳號欄，避免重複存
+      setTimeout(function(){ statusEl.textContent = ''; }, 4000);
+    } else {
+      statusEl.style.color = '#dc2626';
+      statusEl.textContent = '失敗：' + (res && res.error ? res.error : '未知錯誤');
+    }
+  }, function() {
+    btn.disabled = false;
+    statusEl.style.color = '#dc2626';
+    statusEl.textContent = '連線失敗，請確認 API 網址';
+  });
+});
+
+/* JSONP 呼叫工具 */
+function jsonpCall(url, func, params, onSuccess, onError) {
+  var cbName = 'mockcb_' + Math.random().toString(36).substr(2, 9);
+  var script;
+  var timer = setTimeout(function() { cleanup(); if (onError) onError(); }, 30000);
+  function cleanup() {
+    clearTimeout(timer);
+    delete window[cbName];
+    if (script && script.parentNode) script.parentNode.removeChild(script);
+  }
+  window[cbName] = function(data) { cleanup(); onSuccess(data); };
+  var q = url + (url.indexOf('?') > -1 ? '&' : '?') +
+          'callback=' + cbName + '&func=' + encodeURIComponent(func) +
+          '&params=' + encodeURIComponent(JSON.stringify(params));
+  script = document.createElement('script');
+  script.src = q;
+  script.onerror = function() { cleanup(); if (onError) onError(); };
+  document.body.appendChild(script);
+}
 </script>
 </body>
 </html>
