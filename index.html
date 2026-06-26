@@ -182,6 +182,9 @@ let captionText=[
 let showGuides = true;
 const iconCache = new Map();
 
+/* ★ 登記系統 API 網址（寫死，部署到 GitHub 後免設定）*/
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby9AZR8omDhr08pY_HVevTKCxJNSo4nY-SIND5zjibmS_3oLZgsRKIgKs9u3X0AXymbXg/exec';
+
 window.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('systemStatus');
   try {
@@ -194,11 +197,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     statusEl.textContent = '⚠️ 字體載入較慢或失敗，不影響產圖，若字體有誤可手動上傳備用。';
   }
 
-  // 讀取記住的 GAS 網址
+  // ★ 預設填入寫死的網址；若使用者曾手動改過(localStorage)則用記住的
   try {
     var saved = window.localStorage ? localStorage.getItem('dea_gas_url') : '';
-    if (saved) document.getElementById('gasUrl').value = saved;
-  } catch(e) {}
+    document.getElementById('gasUrl').value = saved || DEFAULT_GAS_URL;
+  } catch(e) {
+    document.getElementById('gasUrl').value = DEFAULT_GAS_URL;
+  }
 });
 
 // 記住 GAS 網址
@@ -757,7 +762,7 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
     return;
   }
 
-  var url = document.getElementById('gasUrl').value.trim();
+  var url = document.getElementById('gasUrl').value.trim() || DEFAULT_GAS_URL;
   if (!url) {
     statusEl.style.color = '#dc2626';
     statusEl.textContent = '請先設定下方 API 網址';
