@@ -185,17 +185,34 @@ const iconCache = new Map();
 /* ★ 登記系統 API 網址（寫死，部署到 GitHub 後免設定）*/
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby9AZR8omDhr08pY_HVevTKCxJNSo4nY-SIND5zjibmS_3oLZgsRKIgKs9u3X0AXymbXg/exec';
 
+async function loadCloudFont(baseUrl) {
+  const urls = [
+    `${baseUrl}/bbb_slim.ttf`,
+    `https://cdn.jsdelivr.net/gh/deagiftt-beep/dea-assets@main/bbb_slim.ttf`,
+    `${baseUrl}/bbb.ttf`
+  ];
+  for (let round = 0; round < 3; round++) {
+    for (const url of urls) {
+      try {
+        const face = new FontFace('ZhiDai', `url(${url})`);
+        await face.load();
+        document.fonts.add(face);
+        console.log('[字體] 來源:', url);
+        return url;
+      } catch (e) { /* 換下一個 */ }
+    }
+    await new Promise(r => setTimeout(r, 800));
+  }
+  return null;
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('systemStatus');
-  try {
-    const baseUrl = document.getElementById('githubBaseUrl').value.replace(/\/$/, '');
-    const face = new FontFace('ZhiDai', `url(${baseUrl}/bbb.ttf)`);
-    await face.load();
-    document.fonts.add(face);
-    statusEl.textContent = '✅ 雲端字體與圖庫已連線，可直接產圖！';
-  } catch(e) {
-    statusEl.textContent = '⚠️ 字體載入較慢或失敗，不影響產圖，若字體有誤可手動上傳備用。';
-  }
+  const baseUrl = document.getElementById('githubBaseUrl').value.replace(/\/$/, '');
+  const hit = await loadCloudFont(baseUrl);
+  statusEl.textContent = hit
+    ? '✅ 雲端字體與圖庫已連線，可直接產圖！'
+    : '❌ 字體載入失敗，產出的圖字型會是錯的，請重新整理或手動上傳字體';
 
   // ★ 預設填入寫死的網址；若使用者曾手動改過(localStorage)則用記住的
   try {
