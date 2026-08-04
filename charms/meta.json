@@ -1,0 +1,333 @@
+{
+ "dpi": 300,
+ "size_mm": [
+  45,
+  130
+ ],
+ "series": {
+  "A": {
+   "overlay": "A_overlay.png",
+   "canvas_px": [
+    533,
+    1536
+   ],
+   "charms": [
+    {
+     "mask": "A_m1.png",
+     "center": [
+      269.5,
+      319.5
+     ],
+     "radius": 80.6,
+     "bleed_px": 2,
+     "bbox": [
+      188,
+      237,
+      351,
+      398
+     ]
+    },
+    {
+     "mask": "A_m2.png",
+     "center": [
+      259.7,
+      767.3
+     ],
+     "radius": 81.7,
+     "bleed_px": 2,
+     "bbox": [
+      177,
+      684,
+      342,
+      847
+     ]
+    },
+    {
+     "mask": "A_m3.png",
+     "center": [
+      272.4,
+      1278.6
+     ],
+     "radius": 82.8,
+     "bleed_px": 2,
+     "bbox": [
+      189,
+      1194,
+      356,
+      1360
+     ]
+    }
+   ]
+  },
+  "B": {
+   "overlay": "B_overlay.png",
+   "canvas_px": [
+    533,
+    1536
+   ],
+   "charms": [
+    {
+     "mask": "B_m1.png",
+     "center": [
+      269.5,
+      293.0
+     ],
+     "radius": 77.7,
+     "bleed_px": 2,
+     "bbox": [
+      191,
+      214,
+      348,
+      369
+     ]
+    },
+    {
+     "mask": "B_m2.png",
+     "center": [
+      266.1,
+      781.4
+     ],
+     "radius": 76.0,
+     "bleed_px": 2,
+     "bbox": [
+      189,
+      704,
+      343,
+      856
+     ]
+    },
+    {
+     "mask": "B_m3.png",
+     "center": [
+      266.2,
+      1265.3
+     ],
+     "radius": 76.8,
+     "bleed_px": 2,
+     "bbox": [
+      188,
+      1187,
+      344,
+      1341
+     ]
+    }
+   ]
+  },
+  "C": {
+   "overlay": "C_overlay.png",
+   "canvas_px": [
+    532,
+    1536
+   ],
+   "charms": [
+    {
+     "mask": "C_m1.png",
+     "center": [
+      264.7,
+      310.2
+     ],
+     "radius": 76.4,
+     "bleed_px": 2,
+     "bbox": [
+      187,
+      232,
+      342,
+      385
+     ]
+    },
+    {
+     "mask": "C_m2.png",
+     "center": [
+      264.9,
+      780.3
+     ],
+     "radius": 76.5,
+     "bleed_px": 2,
+     "bbox": [
+      187,
+      703,
+      342,
+      855
+     ]
+    },
+    {
+     "mask": "C_m3.png",
+     "center": [
+      265.4,
+      1269.9
+     ],
+     "radius": 72.7,
+     "bleed_px": 2,
+     "bbox": [
+      191,
+      1196,
+      339,
+      1341
+     ]
+    }
+   ]
+  },
+  "D": {
+   "overlay": "D_overlay.png",
+   "canvas_px": [
+    533,
+    1536
+   ],
+   "charms": [
+    {
+     "mask": "D_m1.png",
+     "center": [
+      268.5,
+      354.4
+     ],
+     "radius": 67.7,
+     "bleed_px": 2,
+     "bbox": [
+      200,
+      285,
+      337,
+      421
+     ]
+    },
+    {
+     "mask": "D_m2.png",
+     "center": [
+      266.3,
+      783.8
+     ],
+     "radius": 69.9,
+     "bleed_px": 2,
+     "bbox": [
+      195,
+      712,
+      337,
+      852
+     ]
+    },
+    {
+     "mask": "D_m3.png",
+     "center": [
+      266.2,
+      1296.6
+     ],
+     "radius": 68.2,
+     "bleed_px": 2,
+     "bbox": [
+      197,
+      1227,
+      335,
+      1364
+     ]
+    }
+   ]
+  },
+  "E": {
+   "overlay": "E_overlay.png",
+   "canvas_px": [
+    533,
+    1536
+   ],
+   "charms": [
+    {
+     "mask": "E_m1.png",
+     "center": [
+      264.5,
+      319.6
+     ],
+     "radius": 77.5,
+     "bleed_px": 2,
+     "bbox": [
+      186,
+      240,
+      343,
+      396
+     ]
+    },
+    {
+     "mask": "E_m2.png",
+     "center": [
+      263.6,
+      789.3
+     ],
+     "radius": 66.1,
+     "bleed_px": 2,
+     "bbox": [
+      196,
+      721,
+      330,
+      854
+     ]
+    },
+    {
+     "mask": "E_m3.png",
+     "center": [
+      289.2,
+      1266.3
+     ],
+     "radius": 58.5,
+     "bleed_px": 2,
+     "bbox": [
+      229,
+      1206,
+      348,
+      1324
+     ]
+    }
+   ]
+  },
+  "F": {
+   "overlay": "F_overlay.png",
+   "canvas_px": [
+    533,
+    1536
+   ],
+   "charms": [
+    {
+     "mask": "F_m1.png",
+     "center": [
+      265.4,
+      353.7
+     ],
+     "radius": 77.4,
+     "bleed_px": 2,
+     "bbox": [
+      187,
+      275,
+      343,
+      430
+     ]
+    },
+    {
+     "mask": "F_m2.png",
+     "center": [
+      266.4,
+      795.6
+     ],
+     "radius": 71.4,
+     "bleed_px": 2,
+     "bbox": [
+      194,
+      722,
+      338,
+      866
+     ]
+    },
+    {
+     "mask": "F_m3.png",
+     "center": [
+      266.4,
+      1260.7
+     ],
+     "radius": 68.8,
+     "bleed_px": 2,
+     "bbox": [
+      196,
+      1190,
+      336,
+      1328
+     ]
+    }
+   ]
+  }
+ }
+}

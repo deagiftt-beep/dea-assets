@@ -1,0 +1,18 @@
+{
+ "artboard_mm": [
+  200,
+  200
+ ],
+ "dpi": 150,
+ "colors": {
+  "pink": "粉色",
+  "yellow": "鵝黃色",
+  "white": "白色",
+  "khaki": "卡其色",
+  "matcha": "抹茶綠",
+  "gray": "灰色",
+  "natural": "原色",
+  "mint": "薄荷綠",
+  "blue": "藍色"
+ }
+}
