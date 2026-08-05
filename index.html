@@ -933,6 +933,7 @@ function jsonpCall(url, func, params, onSuccess, onError) {
       <button id="psUploadBox">📷 上傳照片</button>
       <button id="psExportBtn">🖨️ 輸出上機檔</button>
       <button id="psSaveBtn" style="background:#0d9488;">💾 儲存登記</button>
+      <button id="psTestBtn" class="ps-secondary">🔌 測試連線</button>
       <button id="psLoadBtn" class="ps-secondary">📂 讀取</button>
     </div>
   </div>
@@ -1739,7 +1740,16 @@ async function psPost(payload){
   });
   const txt = await res.text();
   try { return JSON.parse(txt); }
-  catch(e){ throw new Error('伺服器回應不是 JSON：' + txt.slice(0,120)); }
+  catch(e){
+    // 收到網頁而不是 JSON → 幾乎都是「部署」或「資料量」的問題，不是程式錯誤
+    if (/<!DOCTYPE|<html/i.test(txt)) {
+      if (/accounts\.google|登入|Sign in|網頁文書處理/.test(txt)) {
+        throw new Error('Google 要求登入才給資料 → 請到 Apps Script「管理部署作業」把「誰可以存取」改成「任何人」，再以「新版本」重新部署');
+      }
+      throw new Error('伺服器回了一頁網頁而不是資料（HTTP ' + res.status + '）→ 多半是部署版本不對或資料量過大，請按「測試連線」找出原因');
+    }
+    throw new Error('伺服器回應不是 JSON：' + txt.slice(0, 120));
+  }
 }
 function psB64(bytes){
   let s = '', CH = 0x8000;
@@ -1755,6 +1765,17 @@ function psShrink(img, maxEdge){
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', 0.88);
 }
+/* 上傳用的模擬圖：另外壓一份小的（存檔只是給客服日後回看，不需要原尺寸） */
+function psSmallMock(){
+  const src = document.getElementById('psMockSheet');
+  const w = 760, h = Math.round(src.height * w / src.width);
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);
+  x.drawImage(src, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.8).split(',')[1];
+}
 function psBuildEditState(){
   const photos = [], idx = [];
   for (let i=0;i<3;i++){
@@ -1769,7 +1790,7 @@ function psBuildEditState(){
     color: selectedColor,
     name: document.getElementById('psEmbName').value.trim(),
     account: document.getElementById('psAcct').value.trim(),
-    images: photos.map(p => psShrink(p, 1200)),
+    images: photos.map(p => psShrink(p, 1000)),
     charms: state.charms.map((c,i) => ({
       img: idx[i],
       zoom: Math.round(c.scale / c.base * 1000)/10,
@@ -1830,7 +1851,7 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
       content: selectedColor + '+' + document.getElementById('psEmbName').value.trim(),
       fileName: fname,
       printPng: psB64(png),
-      mockupJpg: mockReady ? document.getElementById('psMockImg').src.split(',')[1] : '',
+      mockupJpg: mockReady ? psSmallMock() : '',
       editState: psBuildEditState()
     });
     if (res && res.success){
@@ -1844,6 +1865,38 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
     st.style.color='#dc2626';
     st.textContent = '儲存失敗：' + e.message;
   }
+});
+
+/* 連線診斷：由小到大送三次，找出是「權限/部署」還是「資料量」的問題 */
+document.getElementById('psTestBtn').addEventListener('click', async () => {
+  const st = document.getElementById('psExportStatus');
+  const sizes = [[0, '空包'], [500, '500KB'], [2000, '2MB']];
+  st.style.color = '#0d9488'; st.textContent = '測試中…';
+  const lines = [];
+  for (const [kb, label] of sizes){
+    try {
+      const t0 = Date.now();
+      const r = await psPost({ func: 'psPing', pad: 'x'.repeat(kb * 1024) });
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+      if (r && r.success){
+        lines.push('✅ ' + label + ' 送達（' + secs + ' 秒）' + (r.drive ? ' · 資料夾：' + r.drive : ''));
+      } else {
+        lines.push('❌ ' + label + '：' + ((r && r.error) || '未知錯誤'));
+        break;
+      }
+    } catch(e){
+      lines.push('❌ ' + label + '：' + e.message);
+      break;
+    }
+  }
+  const okCount = lines.filter(l => l[0] === '✅').length;
+  let verdict;
+  if (okCount === 0)      verdict = '→ 連最小的封包都送不到，是「部署／權限」的問題，跟資料量無關';
+  else if (okCount < 3)   verdict = '→ 小封包可以、大封包不行，是「資料量」的問題，請把這段訊息給 Claude';
+  else                    verdict = '→ 連線與容量都正常，問題可能出在存檔當下的其他步驟';
+  st.style.color = okCount === 3 ? '#0d9488' : '#dc2626';
+  st.textContent = lines.join('　｜　') + '　' + verdict;
+  console.log('[手機掛繩連線測試]\n' + lines.join('\n') + '\n' + verdict);
 });
 
 document.getElementById('psLoadBtn').addEventListener('click', async () => {
