@@ -828,5 +828,1083 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   document.body.appendChild(script);
 }
 </script>
+
+<!-- ===================== 手機掛繩模組 開始 =====================
+     這一整段是新增的，完全不影響上面既有的行李飄帶／姓名織帶／寶寶領巾功能與 RPA。
+     全部 id 以 ps 開頭、class 以 ps- 開頭、CSS 限定在 #psApp 之內、JS 包在獨立作用域，
+     與既有程式沒有任何共用變數。
+================================================================= -->
+<style>
+  #psApp { display:none; }
+  #psApp.ps-on { display:block; }
+  .ps-tabbtn { margin-left:8px; padding:7px 14px; border:0; border-radius:999px; cursor:pointer;
+               font-weight:800; font-size:13px; background:#eee; color:#555; }
+  .ps-tabbtn.ps-cur { background:#F29027; color:#fff; }
+  #psApp { --accent: #F29027; }
+  #psApp * { box-sizing: border-box; }
+  #psApp body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei';
+         margin:0; padding:24px; background:#fafafa; color:#222; }
+  #psApp header { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  #psApp header .dot { width:10px; height:10px; border-radius:999px; background:var(--accent); }
+  #psApp h1 { font-size:20px; margin:0; letter-spacing:.3px; }
+  #psApp .ps-topbar { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
+  #psApp .ps-tb-group label { margin:0 0 6px; }
+  #psApp .ps-tb-group input[type=text] { width:150px; }
+  #psApp .ps-tb-status { flex-basis:100%; display:flex; gap:16px; flex-wrap:wrap; margin-top:2px; min-height:1.2em; }
+  #psApp .ps-main { display:grid; grid-template-columns:400px 1fr; gap:16px; align-items:start; }
+  #psApp .ps-panel { background:#fff; border-radius:14px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.05); }
+  #psApp label { font-weight:700; display:block; margin:12px 0 6px; font-size:12px; color:#333; letter-spacing:.2px; }
+  #psApp input, #psApp select, #psApp button { font:inherit; }
+  #psApp input[type=text] { width:100%; padding:9px 11px; border:1px solid #eaeaea; border-radius:10px; font-size:14px; }
+  #psApp input[type=text]:focus { outline:2px solid var(--accent); border-color:var(--accent); }
+  #psApp select { width:100%; padding:9px 11px; border:1px solid #eaeaea; border-radius:10px; font-size:14px; background:#fff; }
+  #psApp button { padding:10px 14px; border:0; border-radius:12px; background:#111; color:#fff; cursor:pointer; font-weight:800; letter-spacing:.2px; }
+  #psApp button.secondary { background:#f0f0f0; color:#111; }
+  #psApp button.accent { background:var(--accent); color:#fff; }
+  #psApp button:disabled { opacity:.5; cursor:not-allowed; }
+  #psApp .ps-muted { color:#666; font-size:12px; line-height:1.5; }
+  #psApp .ps-status { font-size:12px; color:#4b5563; min-height:1.2em; }
+  #psApp .ps-section-title { font-size:12px; font-weight:800; color:#222; margin-top:14px; padding-top:14px; border-top:1px solid #eaeaea; }
+  #psApp .ps-series-grid { display:grid; grid-template-columns:repeat(6,46px); gap:6px; }
+  #psApp .ps-series-btn { background:#f7f7f7; color:#111; border:2px solid transparent; border-radius:10px;
+                padding:5px 2px; text-align:center; font-weight:800; }
+  #psApp .ps-series-btn small { display:block; font-weight:600; font-size:9.5px; color:#777; margin-top:1px; }
+  #psApp .ps-series-btn.active { border-color:var(--accent); background:#fff7ef; color:#b45309; }
+  #psApp .ps-series-btn.active small { color:#b45309; }
+  #psApp .ps-swatches { display:grid; grid-template-columns:repeat(9,34px); gap:2px 6px; }
+  #psApp .ps-swatch { background:none; border:0; padding:2px; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; }
+  #psApp .ps-swatch i { width:24px; height:24px; border-radius:999px; display:block; border:1px solid rgba(0,0,0,.15); }
+  #psApp .ps-swatch.active i { box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--accent); }
+  #psApp .ps-swatch small { font-size:9px; color:#666; font-weight:600; }
+  #psApp .ps-swatch.active small { color:#b45309; font-weight:800; }
+  #psApp .ps-switch { position:relative; display:inline-block; width:44px; height:24px; margin:0; }
+  #psApp .ps-switch input { display:none; }
+  #psApp .ps-slider { position:absolute; inset:0; background:#ddd; border-radius:999px; transition:.2s; }
+  #psApp .ps-slider:before { content:""; position:absolute; height:18px; width:18px; left:3px; top:3px; border-radius:999px; background:#fff; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  #psApp input:checked + .ps-slider { background:var(--accent); }
+  #psApp input:checked + .ps-slider:before { transform:translateX(20px); }
+  #psApp .ps-link-row { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  #psApp .ps-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:50; }
+  #psApp .ps-modal { width:min(680px, 90vw); background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.25); padding:16px; }
+  #psApp .ps-modal header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  #psApp .ps-modal h3 { margin:0; font-size:16px; }
+  #psApp .ps-modal textarea { width:100%; height:180px; padding:10px 12px; border:1px solid #eaeaea; border-radius:12px; font:inherit; }
+  #psApp .ps-modal .ps-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  #psApp .ps-mock-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #psApp .ps-editors { display:flex; flex-direction:column; gap:10px; }
+  #psApp .ps-card { background:#fbfbfb; border:1px solid #eee; border-radius:12px; padding:10px; display:flex; gap:10px; align-items:flex-start; }
+  #psApp .ps-card h3 { margin:0; font-size:12px; }
+  #psApp .ps-card canvas { width:170px; flex:none; display:block; border-radius:10px; background:#fff; touch-action:none; cursor:grab; }
+  #psApp .ps-card canvas:active { cursor:grabbing; }
+  #psApp .ps-card .ps-side { flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
+  #psApp .ps-card .ps-tools { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  #psApp .ps-card input[type=range] { flex:1; min-width:70px; accent-color:var(--accent); }
+  #psApp .ps-card .ps-tools button { padding:6px 9px; font-size:12px; border-radius:9px; }
+  #psApp body { padding:12px; }
+  #psApp .ps-main { grid-template-columns:1fr; }
+  #psApp .ps-tb-group input[type=text] { width:130px; }
+  @media (max-width: 980px) {
+    #psApp .ps-main { grid-template-columns:1fr; }
+    #psApp .ps-tb-group input[type=text] { width:130px; }
+  }
+</style>
+
+<div id="psApp">
+<div class="ps-panel ps-topbar">
+  <div class="ps-tb-group">
+    <label>吊飾小隊</label>
+    <div class="ps-series-grid" id="psSeriesGrid"></div>
+  </div>
+  <div class="ps-tb-group">
+    <label>飄帶配色</label>
+    <div class="ps-swatches" id="psSwatches"></div>
+  </div>
+  <div class="ps-tb-group">
+    <label>客人蝦皮帳號</label>
+    <input type="text" id="psAcct" placeholder="例如 mku170314">
+  </div>
+  <div class="ps-tb-group">
+    <label>刺繡姓名</label>
+    <input type="text" id="psEmbName" placeholder="例如 小麥">
+  </div>
+  <div class="ps-tb-group">
+    <label>&nbsp;</label>
+    <div style="display:flex; gap:8px;">
+      <button id="psUploadBox">📷 上傳照片</button>
+      <button id="psExportBtn">🖨️ 輸出上機檔</button>
+      <button id="psSaveBtn" style="background:#0d9488;">💾 儲存登記</button>
+      <button id="psLoadBtn" class="ps-secondary">📂 讀取</button>
+    </div>
+  </div>
+  <input type="file" id="psPhotoInput" accept="image/*" style="display:none;">
+  <div class="ps-tb-ps-status">
+    <span id="psAssetStatus" class="ps-status" style="color:var(--accent); font-weight:700;">⏳ 正在連線素材庫…</span>
+    <span id="psPhotoStatus" class="ps-status"></span>
+    <span id="psExportStatus" class="ps-status" style="font-weight:700;"></span>
+    <span id="psFnamePreview" class="ps-status" style="color:#888;"></span>
+  </div>
+</div>
+
+<div class="ps-main">
+  <div class="ps-panel">
+    <div class="ps-link-row">
+      <label class="ps-switch"><input type="checkbox" id="psLinkToggle" checked><span class="ps-slider"></span></label>
+      <span style="font-weight:800; font-size:13px;">三顆連動</span>
+      <span class="ps-muted">拖曳／縮放／旋轉同步，關閉可個別微調</span>
+    </div>
+    <div class="ps-editors" id="psEditors"></div>
+    <div class="ps-muted" style="margin-top:10px;">拖曳移動照片、滾輪或雙指縮放；亮度可補救偏暗的照片（印刷會比螢幕再暗一些）。上傳一張會自動套到三顆，2% 出血、洞口底色與 300dpi 已內建。</div>
+  </div>
+
+  <div class="ps-panel">
+    <div class="ps-mock-ps-actions">
+      <button id="psMockBtn" class="ps-accent">🎀 產生模擬圖</button>
+      <button id="psCopyBtn" class="ps-secondary">複製剪貼簿</button>
+      <button id="psTabBtn" class="ps-secondary">新開分頁</button>
+      <button id="psCapBtn" class="ps-secondary">注意事項</button>
+      <span class="ps-muted" style="margin-left:auto;">虛線</span>
+      <label class="ps-switch"><input type="checkbox" id="psGuideToggle" checked><span class="ps-slider"></span></label>
+    </div>
+    <div id="psMockStatus" class="ps-status" style="font-weight:700; margin-top:6px;"></div>
+    <div style="text-align:center; margin-top:8px;">
+      <span id="psMockPlaceholder" class="ps-muted" style="line-height:100px; display:inline-block;">按「產生模擬圖」後顯示（手機可長按圖片儲存或拷貝）</span>
+      <img id="psMockImg" style="width:100%; max-width:520px; display:none; border-radius:12px; border:1px solid #eee;">
+    </div>
+  </div>
+</div>
+
+<canvas id="psMockSheet" style="display:none;"></canvas>
+
+<div id="psModalBackdrop" class="ps-ps-modal-backdrop">
+  <div class="ps-modal">
+    <header>
+      <h3>編輯注意事項</h3>
+      <button id="psCloseModal" class="ps-secondary">關閉</button>
+    </header>
+    <textarea id="psCaptionEditor"></textarea>
+    <div class="ps-actions">
+      <button id="psSaveCaption" class="ps-accent">儲存</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===== 素材與版型定義 ===== */
+const META = {"dpi":300,"size_mm":[45,130],"series":{
+"A":{"overlay":"A_overlay.png","canvas_px":[533,1536],"charms":[{"mask":"A_m1.png","center":[269.5,319.5],"radius":80.6,"bbox":[188,237,351,398]},{"mask":"A_m2.png","center":[259.7,767.3],"radius":81.7,"bbox":[177,684,342,847]},{"mask":"A_m3.png","center":[272.4,1278.6],"radius":82.8,"bbox":[189,1194,356,1360]}]},
+"B":{"overlay":"B_overlay.png","canvas_px":[533,1536],"charms":[{"mask":"B_m1.png","center":[269.5,293.0],"radius":77.7,"bbox":[191,214,348,369]},{"mask":"B_m2.png","center":[266.1,781.4],"radius":76.0,"bbox":[189,704,343,856]},{"mask":"B_m3.png","center":[266.2,1265.3],"radius":76.8,"bbox":[188,1187,344,1341]}]},
+"C":{"overlay":"C_overlay.png","canvas_px":[532,1536],"charms":[{"mask":"C_m1.png","center":[264.7,310.2],"radius":76.4,"bbox":[187,232,342,385]},{"mask":"C_m2.png","center":[264.9,780.3],"radius":76.5,"bbox":[187,703,342,855]},{"mask":"C_m3.png","center":[265.4,1269.9],"radius":72.7,"bbox":[191,1196,339,1341]}]},
+"D":{"overlay":"D_overlay.png","canvas_px":[533,1536],"charms":[{"mask":"D_m1.png","center":[268.5,354.4],"radius":67.7,"bbox":[200,285,337,421]},{"mask":"D_m2.png","center":[266.3,783.8],"radius":69.9,"bbox":[195,712,337,852]},{"mask":"D_m3.png","center":[266.2,1296.6],"radius":68.2,"bbox":[197,1227,335,1364]}]},
+"E":{"overlay":"E_overlay.png","canvas_px":[533,1536],"charms":[{"mask":"E_m1.png","center":[264.5,319.6],"radius":77.5,"bbox":[186,240,343,396]},{"mask":"E_m2.png","center":[263.6,789.3],"radius":66.1,"bbox":[196,721,330,854]},{"mask":"E_m3.png","center":[289.2,1266.3],"radius":58.5,"bbox":[229,1206,348,1324]}]},
+"F":{"overlay":"F_overlay.png","canvas_px":[533,1536],"charms":[{"mask":"F_m1.png","center":[265.4,353.7],"radius":77.4,"bbox":[187,275,343,430]},{"mask":"F_m2.png","center":[266.4,795.6],"radius":71.4,"bbox":[194,722,338,866]},{"mask":"F_m3.png","center":[266.4,1260.7],"radius":68.8,"bbox":[196,1190,336,1328]}]}
+}};
+const SERIES_NAME = {A:'蘋安莓滿',B:'桃氣一夏',C:'大桔旺旺',D:'卡滋派對',E:'和風野餐',F:'全糖甜心'};
+/* 各小隊三顆的頭部尺寸微調係數(以第 1 顆為基準) */
+const SIZE_K = { A:[1,1,1], B:[1,1,1], C:[1,1,1], D:[1,1,1],
+                 E:[1, 0.846, 0.7735], F:[1, 0.9215, 0.893] };
+const STRAP_COLORS = [
+  ['粉色','#D5959A'],['藍色','#6A779F'],['灰色','#969AA5'],
+  ['抹茶綠','#999F82'],['薄荷綠','#B3DCD8'],['卡其色','#D0AD9A'],
+  ['鵝黃色','#FFE6AF'],['白色','#FFFFFF'],['原色','#F4EEE9']
+];
+let selectedColor = '粉色';
+const ROOTS = [
+  'https://deagiftt-beep.github.io/dea-assets',
+  'https://cdn.jsdelivr.net/gh/deagiftt-beep/dea-assets@main',
+  'https://raw.githubusercontent.com/deagiftt-beep/dea-assets/main'
+];
+
+/* ===== 素材載入(多來源輪替) ===== */
+let srcBase = null;
+const imgCache = new Map();
+function tryLoad(url){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = url;
+  });
+}
+async function loadAsset(relPath){
+  if (imgCache.has(relPath)) return imgCache.get(relPath);
+  const bases = srcBase ? [srcBase, ...ROOTS.filter(s => s !== srcBase)] : ROOTS;
+  for (const b of bases){
+    try {
+      const im = await tryLoad(b + '/' + relPath);
+      srcBase = b;
+      imgCache.set(relPath, im);
+      return im;
+    } catch(e) { /* 換下一個來源 */ }
+  }
+  throw new Error('載入失敗: ' + relPath);
+}
+let fontPromise = null;
+async function loadFont(){
+  for (const b of ROOTS){
+    try {
+      const face = new FontFace('ZhiDai', 'url(' + b + '/bbb_slim.ttf)');
+      await face.load();
+      document.fonts.add(face);
+      return true;
+    } catch(e){}
+  }
+  return false;
+}
+
+/* ===== 狀態 ===== */
+const state = {
+  series: 'A',
+  overlay: null,
+  back: null,
+  masks: [null, null, null],
+  charms: [null, null, null].map(() => ({ photo:null, scale:1, dx:0, dy:0, rot:0, bright:100, base:1 }))
+};
+function cfg(){ return META.series[state.series]; }
+
+/* ===== 小隊切換 ===== */
+const seriesGrid = document.getElementById('psSeriesGrid');
+for (const S of 'ABCDEF'){
+  const b = document.createElement('button');
+  b.className = 'ps-series-btn' + (S==='A' ? ' active' : '');
+  b.innerHTML = S + '<small>' + SERIES_NAME[S] + '</small>';
+  b.addEventListener('click', () => selectSeries(S));
+  b.dataset.s = S;
+  seriesGrid.appendChild(b);
+}
+/* ===== 配色色塊 ===== */
+const swEl = document.getElementById('psSwatches');
+for (const [name, hex] of STRAP_COLORS){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ps-swatch' + (name === selectedColor ? ' active' : '');
+  b.innerHTML = '<i style="background:' + hex + '"></i><small>' + name + '</small>';
+  b.addEventListener('click', () => {
+    selectedColor = name;
+    document.querySelectorAll('.ps-swatch').forEach(x => x.classList.toggle('active', x === b));
+    updateFilename();
+  });
+  swEl.appendChild(b);
+}
+
+async function selectSeries(S){
+  state.series = S;
+  document.querySelectorAll('.ps-series-btn').forEach(x => x.classList.toggle('active', x.dataset.s === S));
+  setAssetStatus('⏳ 載入 ' + S + ' 小隊素材…');
+  try {
+    const c = cfg();
+    const [ov, bk, m1, m2, m3] = await Promise.all([
+      loadAsset('charms/' + c.overlay), loadAsset('charms/' + S + '_back.png'),
+      loadAsset('charms/' + c.charms[0].mask),
+      loadAsset('charms/' + c.charms[1].mask), loadAsset('charms/' + c.charms[2].mask)
+    ]);
+    state.overlay = ov; state.back = bk; state.masks = [m1, m2, m3];
+    for (let i=0;i<3;i++) if (state.charms[i].photo) resetCharm(i, true);
+    setAssetStatus('✅ ' + S + ' 小隊素材就緒(來源已連線)');
+    renderAllEditors(); renderStrip(); updateFilename();
+  } catch(e){
+    setAssetStatus('❌ 素材載入失敗，請確認 GitHub 上有 charms 資料夾後重新整理');
+  }
+}
+function setAssetStatus(t){ document.getElementById('psAssetStatus').textContent = t; }
+
+/* ===== 照片載入(自動處理手機照片方向) ===== */
+async function fileToImage(file){
+  if (window.createImageBitmap){
+    try { return await createImageBitmap(file, { imageOrientation:'from-image' }); } catch(e){}
+  }
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = r.result; };
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+document.getElementById('psUploadBox').addEventListener('click', () => document.getElementById('psPhotoInput').click());
+document.getElementById('psPhotoInput').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const st = document.getElementById('psPhotoStatus');
+  try {
+    const im = await fileToImage(f);
+    for (let i=0;i<3;i++){ state.charms[i].photo = im; resetCharm(i, true); }
+    st.style.color = '#0d9488'; st.textContent = '✅ 已套用到三顆，可到右邊個別調整';
+    renderAllEditors(); renderStrip();
+  } catch(err){
+    st.style.color = '#dc2626'; st.textContent = '無法讀取這張照片，請改用 jpg 或 png';
+  }
+  e.target.value = '';
+});
+
+/* ===== 版面幾何 ===== */
+function viewRegion(i){
+  // 三顆共用同一取景範圍,編輯畫面看到的相對大小 = 成品實際相對大小
+  const chs = cfg().charms;
+  const side = Math.max(...chs.map(c => Math.max(c.bbox[2]-c.bbox[0], c.bbox[3]-c.bbox[1]))) * 1.9;
+  const ch = chs[i];
+  return { sx: ch.center[0]-side/2, sy: ch.center[1]-side/2, side };
+}
+/* 三顆共用的縮放基準:用該小隊最大的洞去算,套用到每一顆,
+   讓三顆的臉在成品上是同樣大小(小洞只是裁得緊一點) */
+function seriesBase(photo){
+  const chs = cfg().charms;
+  const mw = Math.max(...chs.map(c => c.bbox[2]-c.bbox[0]));
+  const mh = Math.max(...chs.map(c => c.bbox[3]-c.bbox[1]));
+  return Math.max(mw/photo.width, mh/photo.height);
+}
+function resetCharm(i, keepPhoto){
+  const c = state.charms[i];
+  if (!keepPhoto) c.photo = null;
+  if (c.photo){
+    c.base = seriesBase(c.photo) * (SIZE_K[state.series] ? SIZE_K[state.series][i] : 1);
+    c.scale = c.base * 1.06;
+  }
+  c.dx = 0; c.dy = 0; c.rot = 0; c.bright = 100;
+  const sl = document.getElementById('psZoom'+i);
+  if (sl) sl.value = 106;
+  const rs = document.getElementById('psRot'+i);
+  if (rs){ rs.value = 0; document.getElementById('psRotv'+i).textContent = '0°'; }
+  const bs = document.getElementById('psBri'+i);
+  if (bs){ bs.value = 100; document.getElementById('psBriv'+i).textContent = '100%'; }
+}
+
+/* ===== 三個編輯卡片 ===== */
+const EDITOR_PX = 320;
+const editorsEl = document.getElementById('psEditors');
+const POS_NAME = ['第 1 顆(上)','第 2 顆(中)','第 3 顆(下)'];
+for (let i=0;i<3;i++){
+  const card = document.createElement('div');
+  card.className = 'ps-card';
+  card.innerHTML =
+    '<canvas id="psEd'+i+'" width="'+EDITOR_PX+'" height="'+EDITOR_PX+'"></canvas>' +
+    '<div class="ps-side">' +
+      '<h3>' + POS_NAME[i] + '</h3>' +
+      '<div class="ps-tools">' +
+        '<span class="ps-muted" style="font-size:11px;">縮放</span>' +
+        '<input type="range" id="psZoom'+i+'" min="40" max="300" value="106">' +
+      '</div>' +
+      '<div class="ps-tools">' +
+        '<span class="ps-muted" style="font-size:11px;">旋轉</span>' +
+        '<input type="range" id="psRot'+i+'" min="-90" max="90" value="0" step="1">' +
+        '<span class="ps-muted" id="psRotv'+i+'" style="width:30px; text-align:right;">0°</span>' +
+      '</div>' +
+      '<div class="ps-tools">' +
+        '<span class="ps-muted" style="font-size:11px;">亮度</span>' +
+        '<input type="range" id="psBri'+i+'" min="50" max="160" value="100" step="1">' +
+        '<span class="ps-muted" id="psBriv'+i+'" style="width:38px; text-align:right;">100%</span>' +
+      '</div>' +
+      '<div class="ps-tools">' +
+        '<button class="ps-secondary" id="psSwap'+i+'">換照片</button>' +
+        '<button class="ps-secondary" id="psReset'+i+'">重設</button>' +
+      '</div>' +
+      '<input type="file" id="psFile'+i+'" accept="image/*" style="display:none;">' +
+    '</div>';
+  editorsEl.appendChild(card);
+}
+function checker(ctx, w, h, size){
+  for (let y=0; y<h; y+=size) for (let x=0; x<w; x+=size){
+    ctx.fillStyle = ((x/size + y/size) % 2 === 0) ? '#e9e9e9' : '#f7f7f7';
+    ctx.fillRect(x, y, size, size);
+  }
+}
+function drawCharmLayer(ctx, i, mapX, mapY, k){
+  // 照片層:先畫照片、再用遮罩 destination-in 裁切,呼叫端負責把結果疊到主畫布
+  const c = state.charms[i], ch = cfg().charms[i];
+  if (!c.photo) return null;
+  const off = document.createElement('canvas');
+  off.width = ctx.canvas.width; off.height = ctx.canvas.height;
+  const o = off.getContext('2d');
+  const pw = c.photo.width * c.scale * k, phh = c.photo.height * c.scale * k;
+  const cx = mapX(ch.center[0] + c.dx), cy = mapY(ch.center[1] + c.dy);
+  o.translate(cx, cy);
+  o.rotate((c.rot || 0) * Math.PI / 180);
+  const br = (c.bright == null ? 100 : c.bright);
+  if (br !== 100) o.filter = 'brightness(' + (br/100) + ')';
+  o.drawImage(c.photo, -pw/2, -phh/2, pw, phh);
+  o.filter = 'none';
+  o.setTransform(1, 0, 0, 1, 0, 0);
+  o.globalCompositeOperation = 'destination-in';
+  return off;
+}
+function renderEditor(i){
+  const cv = document.getElementById('psEd'+i);
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,EDITOR_PX,EDITOR_PX);
+  checker(ctx, EDITOR_PX, EDITOR_PX, 16);
+  if (!state.overlay) return;
+  const { sx, sy, side } = viewRegion(i);
+  const k = EDITOR_PX / side;
+  const mapX = v => (v - sx) * k, mapY = v => (v - sy) * k;
+  if (state.back) ctx.drawImage(state.back, sx, sy, side, side, 0, 0, EDITOR_PX, EDITOR_PX);
+  const off = drawCharmLayer(ctx, i, mapX, mapY, k);
+  if (off){
+    const o = off.getContext('2d');
+    o.drawImage(state.masks[i], sx, sy, side, side, 0, 0, EDITOR_PX, EDITOR_PX);
+    ctx.drawImage(off, 0, 0);
+  }
+  ctx.drawImage(state.overlay, sx, sy, side, side, 0, 0, EDITOR_PX, EDITOR_PX);
+}
+function renderAllEditors(){ for (let i=0;i<3;i++) renderEditor(i); }
+
+/* ===== 整條預覽已於 v2.2 移除,保留函式名讓各呼叫點不用改 ===== */
+function renderStrip(){}
+
+/* ===== 互動:拖曳 / 雙指縮放 / 滾輪 / 滑桿(支援三顆連動) ===== */
+const linkEl = document.getElementById('psLinkToggle');
+function targets(i){
+  return (linkEl.checked ? [0,1,2] : [i]).filter(j => state.charms[j].photo);
+}
+function applyDrag(i, fdx, fdy){
+  for (const j of targets(i)){
+    state.charms[j].dx += fdx;
+    state.charms[j].dy += fdy;
+    renderEditor(j);
+  }
+}
+function applyZoomRatio(i, ratio){
+  for (const j of targets(i)){
+    setZoom(j, state.charms[j].scale * ratio);
+    renderEditor(j);
+  }
+}
+function applyRotDelta(i, delta){
+  for (const j of targets(i)){
+    setRot(j, state.charms[j].rot + delta);
+    renderEditor(j);
+  }
+}
+function setRot(i, deg){
+  const c = state.charms[i];
+  c.rot = Math.min(90, Math.max(-90, deg));
+  document.getElementById('psRot'+i).value = Math.round(c.rot);
+  document.getElementById('psRotv'+i).textContent = Math.round(c.rot) + '°';
+}
+function applyBrightDelta(i, delta){
+  for (const j of targets(i)){
+    setBright(j, (state.charms[j].bright == null ? 100 : state.charms[j].bright) + delta);
+    renderEditor(j);
+  }
+}
+function setBright(i, val){
+  const c = state.charms[i];
+  c.bright = Math.min(160, Math.max(50, val));
+  document.getElementById('psBri'+i).value = Math.round(c.bright);
+  document.getElementById('psBriv'+i).textContent = Math.round(c.bright) + '%';
+}
+for (let i=0;i<3;i++){
+  const cv = document.getElementById('psEd'+i);
+  const pointers = new Map();
+  let lastDist = 0;
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (pointers.size === 2){
+      const [a,b] = [...pointers.values()];
+      lastDist = Math.hypot(a.x-b.x, a.y-b.y);
+    }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    if (!state.charms[i].photo) return;
+    const rect = cv.getBoundingClientRect();
+    const cssToFull = viewRegion(i).side / rect.width;
+    const prev = pointers.get(e.pointerId);
+    pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (pointers.size === 1){
+      applyDrag(i, (e.clientX - prev.x) * cssToFull, (e.clientY - prev.y) * cssToFull);
+    } else if (pointers.size === 2){
+      const [a,b] = [...pointers.values()];
+      const d = Math.hypot(a.x-b.x, a.y-b.y);
+      if (lastDist > 0 && d > 0) applyZoomRatio(i, d / lastDist);
+      lastDist = d;
+    }
+  });
+  const up = e => { pointers.delete(e.pointerId); lastDist = 0; renderStrip(); };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => {
+    if (!state.charms[i].photo) return;
+    e.preventDefault();
+    applyZoomRatio(i, e.deltaY < 0 ? 1.06 : 1/1.06);
+    renderStrip();
+  }, { passive:false });
+
+  document.getElementById('psZoom'+i).addEventListener('input', e => {
+    const c = state.charms[i]; if (!c.photo) return;
+    const newScale = c.base * e.target.value / 100;
+    applyZoomRatio(i, newScale / c.scale);
+  });
+  document.getElementById('psZoom'+i).addEventListener('change', renderStrip);
+  document.getElementById('psRot'+i).addEventListener('input', e => {
+    const c = state.charms[i]; if (!c.photo) return;
+    applyRotDelta(i, parseFloat(e.target.value) - c.rot);
+  });
+  document.getElementById('psRot'+i).addEventListener('change', renderStrip);
+  document.getElementById('psBri'+i).addEventListener('input', e => {
+    const c = state.charms[i]; if (!c.photo) return;
+    applyBrightDelta(i, parseFloat(e.target.value) - (c.bright == null ? 100 : c.bright));
+  });
+  document.getElementById('psBri'+i).addEventListener('change', renderStrip);
+  document.getElementById('psReset'+i).addEventListener('click', () => {
+    for (const j of targets(i)){ resetCharm(j, true); renderEditor(j); }
+    renderStrip();
+  });
+  document.getElementById('psSwap'+i).addEventListener('click', () => document.getElementById('psFile'+i).click());
+  document.getElementById('psFile'+i).addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      state.charms[i].photo = await fileToImage(f);
+      resetCharm(i, true); renderEditor(i); renderStrip();
+    } catch(err){ alert('無法讀取這張照片，請改用 jpg 或 png'); }
+    e.target.value = '';
+  });
+}
+function setZoom(i, newScale){
+  const c = state.charms[i];
+  c.scale = Math.min(c.base*3, Math.max(c.base*0.4, newScale));
+  const sl = document.getElementById('psZoom'+i);
+  sl.value = Math.round(c.scale / c.base * 100);
+}
+
+/* ===== 檔名 ===== */
+function buildFilename(){
+  const acct = document.getElementById('psAcct').value.trim();
+  const name = document.getElementById('psEmbName').value.trim();
+  if (!acct || !name) return null;
+  return acct + '_' + selectedColor + '_' + state.series + '+' + name + '.png';
+}
+function updateFilename(){
+  document.getElementById('psFnamePreview').textContent = buildFilename() || '（填好帳號和姓名後顯示）';
+}
+['psAcct','psEmbName'].forEach(id => document.getElementById(id).addEventListener('input', updateFilename));
+
+/* ===== PNG pHYs(300dpi 資訊)寫入 ===== */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n=0; n<256; n++){
+    let c = n;
+    for (let k=0; k<8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (let i=0; i<bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function addPhys(buffer, ppmX, ppmY){
+  const src = new Uint8Array(buffer);
+  const dv = new DataView(buffer);
+  let pos = 8;
+  while (pos < src.length){
+    const len = dv.getUint32(pos);
+    const type = String.fromCharCode(src[pos+4], src[pos+5], src[pos+6], src[pos+7]);
+    if (type === 'IDAT') break;
+    pos += 12 + len;
+  }
+  const chunk = new Uint8Array(21);
+  const cdv = new DataView(chunk.buffer);
+  cdv.setUint32(0, 9);
+  chunk[4]=0x70; chunk[5]=0x48; chunk[6]=0x59; chunk[7]=0x73; // pHYs
+  cdv.setUint32(8, ppmX); cdv.setUint32(12, ppmY);
+  chunk[16] = 1; // 單位:公尺
+  cdv.setUint32(17, crc32(chunk.subarray(4, 17)));
+  const out = new Uint8Array(src.length + 21);
+  out.set(src.subarray(0, pos), 0);
+  out.set(chunk, pos);
+  out.set(src.subarray(pos), pos + 21);
+  return out;
+}
+
+/* ===== 輸出上機檔 ===== */
+document.getElementById('psExportBtn').addEventListener('click', async () => {
+  const st = document.getElementById('psExportStatus');
+  const missing = [0,1,2].filter(i => !state.charms[i].photo);
+  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return; }
+  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片:' + missing.map(i=>POS_NAME[i]).join('、'); return; }
+  const fname = buildFilename();
+  if (!fname){ st.style.color='#dc2626'; st.textContent='請先填客人帳號和刺繡姓名'; return; }
+
+  st.style.color = '#0d9488'; st.textContent = '產生中…';
+  try {
+    const [W,H] = cfg().canvas_px;
+    const cv = buildStrip();
+
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const buf = await blob.arrayBuffer();
+    const withDpi = addPhys(buf, Math.round(W/0.045), Math.round(H/0.130));
+    const url = URL.createObjectURL(new Blob([withDpi], { type:'image/png' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    st.textContent = '✅ 已下載:' + fname;
+  } catch(e){
+    st.style.color = '#dc2626';
+    st.textContent = '輸出失敗:' + (e.message || '未知錯誤') + '(若顯示 tainted 表示素材來源沒開 CORS,請重新整理再試)';
+  }
+});
+
+/* ===== 共用:全解析度吊飾條 ===== */
+function buildStrip(){
+  const [W,H] = cfg().canvas_px;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  if (state.back) ctx.drawImage(state.back, 0, 0);
+  for (let i=0;i<3;i++){
+    const off = drawCharmLayer(ctx, i, v=>v, v=>v, 1);
+    if (off){
+      const o = off.getContext('2d');
+      o.drawImage(state.masks[i], 0, 0);
+      ctx.drawImage(off, 0, 0);
+    }
+  }
+  ctx.drawImage(state.overlay, 0, 0);
+  return cv;
+}
+
+/* ===== 模擬圖(直式) ===== */
+const PXMM = 5; // 50px/cm,與 v14 相同
+const STRAP_GEO = { usableStart:77.4, usableEnd:163.7, centerY:118.3 }; // mm,模板九個畫布皆相同
+const WHITE_TEXT = ['粉色','藍色','灰色','抹茶綠','卡其色'];
+const BASE_SLUG = {'粉色':'pink','藍色':'blue','灰色':'gray','抹茶綠':'matcha','薄荷綠':'mint',
+                   '卡其色':'khaki','鵝黃色':'yellow','白色':'white','原色':'natural'};
+const PHONE_SCALE = 0.75*0.96; // 比姓名織帶小 4%
+const EN_BASE_CM = 2.5*1.2*0.95, STRAP_W_CM = 3.8, CJK_RATIO = 0.70*0.90, TEXT_SHIFT_DESC_CM = 0.10;
+const MOCK = { W:1080, offX:40, offY:-100, anchorX:676.5, anchorY:524.5, chainX:55.7, ring0Y:62.7,
+               ringR:12.5, joint:-8, margin:90, bottom:64 };
+
+function isCJKChar(ch){ return /[\u4E00-\u9FFF]/.test(ch); }
+function segmentTextRuns(text){
+  const runs = []; if (!text) return runs;
+  let cur = null, buf = '';
+  for (const ch of text){
+    const t = isCJKChar(ch) ? 'cjk' : 'latin';
+    if (cur === null){ cur = t; buf = ch; continue; }
+    if (t === cur){ buf += ch; } else { runs.push({type:cur, text:buf}); cur = t; buf = ch; }
+  }
+  if (buf) runs.push({type:cur, text:buf});
+  return runs;
+}
+function measureRuns(ctx, runs){
+  let total = 0; const out = [];
+  for (const r of runs){
+    const fontCm = (r.type === 'cjk') ? (STRAP_W_CM*CJK_RATIO) : EN_BASE_CM;
+    const fontPx = fontCm * PHONE_SCALE * PXMM * 10;
+    ctx.font = fontPx + "px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif";
+    const w = ctx.measureText(r.text).width;
+    const shiftPx = (r.type === 'latin' && /[gypqj]/.test(r.text)) ? TEXT_SHIFT_DESC_CM*PHONE_SCALE*PXMM*10 : 0;
+    out.push({ ...r, fontPx, width:w, shiftPx });
+    total += w;
+  }
+  return { totalWidth: total, runs: out };
+}
+
+/* 每小隊三顆吊飾的圖案實際範圍(掃 overlay 透明度,快取) */
+const boundsCache = {};
+function charmArtBounds(lineImg){
+  const S = state.series;
+  if (boundsCache[S]) return boundsCache[S];
+  const [W,H] = cfg().canvas_px;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  x.drawImage(state.overlay, 0, 0);
+  if (lineImg) x.drawImage(lineImg, 0, 0);
+  const d = x.getImageData(0, 0, W, H).data;
+  const H3 = Math.floor(H/3); const res = [];
+  for (let t=0;t<3;t++){
+    const y0 = t*H3, y1 = (t<2 ? (t+1)*H3 : H);
+    let minX = W, maxX = -1, minY = H, maxY = -1;
+    for (let y=y0; y<y1; y++){
+      const row = y*W;
+      for (let xx=0; xx<W; xx++){
+        if (d[(row+xx)*4+3] > 10){
+          if (xx<minX) minX = xx; if (xx>maxX) maxX = xx;
+          if (y<minY) minY = y; if (y>maxY) maxY = y;
+        }
+      }
+    }
+    res.push({ x0:minX, y0:minY, x1:maxX, y1:maxY });
+  }
+  boundsCache[S] = res;
+  return res;
+}
+
+/* 注意事項 */
+let captionText = '藍色虛線為繡框範圍，文字內容如果超出繡框範圍，製作時會視情況縮小文字，如超出太多建議自行縮減長度，避免影響刺繡效果。';
+const CAP_PX = 24, CAP_LH = 38, CAP_TOP = 32;
+const CAP_FONT = CAP_PX + "px system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang TC','Microsoft JhengHei'";
+function wrapCaption(ctx, text, maxWidth){
+  if (!text) return [];
+  const lines = [];
+  for (const para of text.split(/\n/)){
+    let p = para;
+    if (!p.trim()){ lines.push(''); continue; }
+    let bullet = false;
+    if (/^\s*•\s*/.test(p)){ bullet = true; p = p.replace(/^\s*•\s*/, ''); }
+    let line = bullet ? '• ' : '';
+    for (const ch of [...p]){
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line.trim() !== ''){
+        if (line.trim() === '•'){ line = test; continue; }
+        lines.push(line);
+        line = ch;
+      } else { line = test; }
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+function captionHeight(lines){
+  return lines.length ? CAP_TOP + lines.length*CAP_LH : 0;
+}
+function drawCaption(m, capLines, startY, canvasW){
+  if (!capLines.length) return;
+  m.save();
+  m.strokeStyle = '#E8E8E8'; m.lineWidth = 1;
+  m.beginPath();
+  m.moveTo(MOCK.margin, startY + 0.5); m.lineTo(canvasW - MOCK.margin, startY + 0.5);
+  m.stroke();
+  m.font = CAP_FONT;
+  m.textBaseline = 'top'; m.textAlign = 'left';
+  m.fillStyle = '#6E6E6E';
+  try { m.letterSpacing = '0.4px'; } catch(e){}
+  let y = startY + CAP_TOP;
+  for (const ln of capLines){ m.fillText(ln, MOCK.margin, y); y += CAP_LH; }
+  m.restore();
+}
+
+async function genMock(){
+  const st = document.getElementById('psMockStatus');
+  const missing = [0,1,2].filter(i => !state.charms[i].photo);
+  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return; }
+  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片:' + missing.map(i=>POS_NAME[i]).join('、'); return; }
+  const name = document.getElementById('psEmbName').value.trim();
+  if (!name){ st.style.color='#dc2626'; st.textContent='請先填刺繡姓名'; return; }
+  st.style.color = '#0d9488'; st.textContent = '產生中…';
+  try {
+    if (fontPromise) await fontPromise;
+    try { await document.fonts.load("16px 'ZhiDai'"); } catch(e){}
+    const baseImg = await loadAsset('base/base_' + BASE_SLUG[selectedColor] + '.png');
+    const lineImg = await loadAsset('charms/' + state.series + '_line.png');
+    const strip = buildStrip();
+    strip.getContext('2d').drawImage(lineImg, 0, 0); // 模擬圖的吊飾要有黑色輪廓線
+    const bounds = charmArtBounds(lineImg);
+
+    // 橫式底圖層:底圖 + 繡字 + 虛線(總寬 65mm),之後整層順時針轉 45°
+    const bl = document.createElement('canvas'); bl.width = 1000; bl.height = 1000;
+    const b = bl.getContext('2d');
+    b.drawImage(baseImg, 0, 0, 1000, 1000);
+    const runs = measureRuns(b, segmentTextRuns(name));
+    const uS = STRAP_GEO.usableStart*PXMM, uE = STRAP_GEO.usableEnd*PXMM, cy = STRAP_GEO.centerY*PXMM;
+    let startX = (uS+uE)/2 - runs.totalWidth/2;
+    if (startX < uS) startX = uS;
+    if (startX + runs.totalWidth > uE) startX = Math.max(uS, uE - runs.totalWidth);
+    const centerX = startX + runs.totalWidth/2;
+    b.textBaseline = 'middle'; b.textAlign = 'left';
+    b.fillStyle = WHITE_TEXT.includes(selectedColor) ? '#fff' : '#000';
+    let curX = startX;
+    for (const r of runs.runs){
+      b.font = r.fontPx + "px 'ZhiDai','Noto Sans TC','Microsoft JhengHei',sans-serif";
+      if (r.text.trim()) b.fillText(r.text, curX, cy + r.shiftPx);
+      curX += r.width;
+    }
+    if (document.getElementById('psGuideToggle').checked){
+      b.save(); b.setLineDash([10,10]); b.lineWidth = 3; b.strokeStyle = 'rgba(43,164,247,0.95)';
+      const dh = 105;
+      b.beginPath();
+      b.moveTo(centerX-162.5, cy-dh); b.lineTo(centerX-162.5, cy+dh);
+      b.moveTo(centerX+162.5, cy-dh); b.lineTo(centerX+162.5, cy+dh);
+      b.stroke(); b.restore();
+    }
+
+    // 吊飾串版面計算(垂直懸掛,灰色 5mm 圓環)
+    const ss = PXMM / (cfg().canvas_px[0] / 45);
+    const chainCx = MOCK.offX + MOCK.chainX*PXMM;
+    const rings = [MOCK.offY + MOCK.ring0Y*PXMM];
+    const places = [];
+    let cy2 = rings[0] + MOCK.ringR + MOCK.joint;
+    for (let i=0;i<3;i++){
+      const bb = bounds[i], bw = bb.x1-bb.x0+1, bh = bb.y1-bb.y0+1;
+      places.push({ bb, y: cy2, w: bw*ss, h: bh*ss });
+      const bottom = cy2 + bh*ss;
+      if (i<2){
+        const rc = bottom + MOCK.ringR + MOCK.joint;
+        rings.push(rc);
+        cy2 = rc + MOCK.ringR + MOCK.joint;
+      } else {
+        cy2 = bottom;
+      }
+    }
+    const capStartY = Math.round(cy2 + 70);
+
+    // 主畫布
+    const cvM = document.getElementById('psMockSheet');
+    const mctx0 = cvM.getContext('2d');
+    mctx0.font = CAP_FONT;
+    const capLines = wrapCaption(mctx0, captionText, MOCK.W - MOCK.margin*2);
+    cvM.width = MOCK.W;
+    cvM.height = capStartY + captionHeight(capLines) + MOCK.bottom;
+    const m = cvM.getContext('2d');
+    m.fillStyle = '#fff'; m.fillRect(0, 0, cvM.width, cvM.height);
+    // 織帶整組轉 45°(以金屬環附近為軸,偏右擺放讓視覺平衡)
+    m.save();
+    m.translate(MOCK.offX + MOCK.anchorX, MOCK.offY + MOCK.anchorY);
+    m.rotate(Math.PI/4);
+    m.translate(-MOCK.anchorX, -MOCK.anchorY);
+    m.drawImage(bl, 0, 0);
+    m.restore();
+    // 灰色小圓環先畫,吊飾的吊孔會透出環身
+    m.save(); m.strokeStyle = '#9FA0A0'; m.lineWidth = 5;
+    for (const rc of rings){ m.beginPath(); m.arc(chainCx, rc, MOCK.ringR, 0, Math.PI*2); m.stroke(); }
+    m.restore();
+    // 吊飾(含輪廓線)
+    for (const p of places){
+      m.drawImage(strip, p.bb.x0, p.bb.y0, p.bb.x1-p.bb.x0+1, p.bb.y1-p.bb.y0+1, chainCx - p.w/2, p.y, p.w, p.h);
+    }
+    if (captionText) drawCaption(m, capLines, capStartY, cvM.width);
+
+    const img = document.getElementById('psMockImg');
+    img.src = cvM.toDataURL('image/jpeg', 0.92);
+    img.style.display = 'block';
+    document.getElementById('psMockPlaceholder').style.display = 'none';
+    st.textContent = '✅ 模擬圖完成，可複製或長按儲存';
+  } catch(e){
+    st.style.color = '#dc2626';
+    st.textContent = '產生失敗:' + (e.message || '未知錯誤');
+  }
+}
+document.getElementById('psMockBtn').addEventListener('click', genMock);
+
+async function canvasToUnder2MB(canvas){
+  const blobPng = await new Promise(res => canvas.toBlob(res, 'image/png'));
+  if (blobPng && blobPng.size < 2_000_000) return { blob:blobPng, type:'image/png' };
+  let q = 0.92, blobJ = null;
+  while (q >= 0.6){
+    blobJ = await new Promise(res => canvas.toBlob(res, 'image/jpeg', q));
+    if (blobJ && blobJ.size < 2_000_000) return { blob:blobJ, type:'image/jpeg' };
+    q -= 0.08;
+  }
+  return { blob: blobJ || blobPng, type: blobJ ? 'image/jpeg' : 'image/png' };
+}
+document.getElementById('psCopyBtn').addEventListener('click', async () => {
+  const st = document.getElementById('psMockStatus');
+  const img = document.getElementById('psMockImg');
+  if (img.style.display === 'none'){ st.style.color='#dc2626'; st.textContent='請先產生模擬圖'; return; }
+  const { blob, type } = await canvasToUnder2MB(document.getElementById('psMockSheet'));
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+    st.style.color='#0d9488'; st.textContent = '已複製！';
+  } catch(e){
+    st.style.color='#dc2626'; st.textContent = '手機請直接長按圖片';
+  }
+  setTimeout(() => { st.textContent = ''; }, 2500);
+});
+document.getElementById('psTabBtn').addEventListener('click', () => {
+  const img = document.getElementById('psMockImg');
+  const st = document.getElementById('psMockStatus');
+  if (img.style.display === 'none'){ st.style.color='#dc2626'; st.textContent='請先產生模擬圖'; return; }
+  const newWin = window.open('', '_blank');
+  if (!newWin){ alert('請關閉瀏覽器的「阻擋彈出視窗」功能才能使用新開分頁。'); return; }
+  newWin.document.write('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0; background:#333;"><img src="' + img.src + '" style="width:100%; max-width:1000px; height:auto; display:block; margin:0 auto;"></body>');
+});
+const modal = document.getElementById('psModalBackdrop');
+document.getElementById('psCapBtn').addEventListener('click', () => {
+  document.getElementById('psCaptionEditor').value = captionText;
+  modal.style.display = 'flex';
+});
+document.getElementById('psCloseModal').addEventListener('click', () => modal.style.display = 'none');
+document.getElementById('psSaveCaption').addEventListener('click', () => {
+  captionText = document.getElementById('psCaptionEditor').value || '';
+  modal.style.display = 'none';
+});
+
+
+/* ===================== 儲存登記 / 讀取（跨系統） ===================== */
+/* 手機掛繩的存檔/讀取走「2026 刺繡訂單」那支 GAS（模擬圖登記與訂單同一個試算表）
+   ※ 這不是 v14 上面那個「登記系統 API 網址」，兩者互不影響 */
+const PS_SHEET_GAS = 'https://script.google.com/macros/s/AKfycbxeKCnWx84fSpzSgF0AYkBBXshkva8HKbvqdOnG2XlViqhZwLNhCLzR0ThQ9JgjzJU/exec';
+function psGasUrl(){ return PS_SHEET_GAS; }
+async function psPost(payload){
+  const res = await fetch(psGasUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },  // 純文字避免 preflight，GAS 才收得到
+    body: JSON.stringify(payload)
+  });
+  const txt = await res.text();
+  try { return JSON.parse(txt); }
+  catch(e){ throw new Error('伺服器回應不是 JSON：' + txt.slice(0,120)); }
+}
+function psB64(bytes){
+  let s = '', CH = 0x8000;
+  for (let i=0; i<bytes.length; i+=CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+  return btoa(s);
+}
+/* 照片縮到最長邊 1200px 存檔：印刷實際只用到約 170px 寬，1200 已是 7 倍餘裕 */
+function psShrink(img, maxEdge){
+  const s = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.width*s));
+  c.height = Math.max(1, Math.round(img.height*s));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.88);
+}
+function psBuildEditState(){
+  const photos = [], idx = [];
+  for (let i=0;i<3;i++){
+    const p = state.charms[i].photo;
+    let k = photos.indexOf(p);
+    if (k < 0){ photos.push(p); k = photos.length-1; }
+    idx.push(k);
+  }
+  return {
+    v: 1,
+    series: state.series,
+    color: selectedColor,
+    name: document.getElementById('psEmbName').value.trim(),
+    account: document.getElementById('psAcct').value.trim(),
+    images: photos.map(p => psShrink(p, 1200)),
+    charms: state.charms.map((c,i) => ({
+      img: idx[i],
+      zoom: Math.round(c.scale / c.base * 1000)/10,
+      dx: Math.round(c.dx*10)/10,
+      dy: Math.round(c.dy*10)/10,
+      rot: c.rot || 0,
+      bright: c.bright == null ? 100 : c.bright
+    }))
+  };
+}
+async function psRestore(st){
+  await selectSeries(st.series);
+  selectedColor = st.color;
+  document.querySelectorAll('#psSwatches .ps-swatch').forEach(b => {
+    b.classList.toggle('active', b.textContent.indexOf(st.color) >= 0);
+  });
+  document.getElementById('psEmbName').value = st.name || '';
+  document.getElementById('psAcct').value = st.account || '';
+  const imgs = await Promise.all((st.images||[]).map(src => new Promise((res, rej) => {
+    const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src;
+  })));
+  for (let i=0;i<3;i++){
+    const s = st.charms[i]; const c = state.charms[i];
+    c.photo = imgs[s.img] || imgs[0] || null;
+    if (!c.photo) continue;
+    c.base = seriesBase(c.photo) * (SIZE_K[state.series] ? SIZE_K[state.series][i] : 1);
+    c.scale = c.base * (s.zoom/100);
+    c.dx = s.dx; c.dy = s.dy;
+    document.getElementById('psZoom'+i).value = Math.round(s.zoom);
+    setRot(i, s.rot); setBright(i, s.bright);
+  }
+  renderAllEditors();
+  updateFilename();
+}
+
+document.getElementById('psSaveBtn').addEventListener('click', async () => {
+  const st = document.getElementById('psExportStatus');
+  const fname = buildFilename();
+  const missing = [0,1,2].filter(i => !state.charms[i].photo);
+  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return; }
+  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片：' + missing.map(i=>POS_NAME[i]).join('、'); return; }
+  if (!fname){ st.style.color='#dc2626'; st.textContent='請先填客人帳號和刺繡姓名'; return; }
+  const mockReady = document.getElementById('psMockImg').style.display !== 'none';
+  if (!mockReady && !confirm('還沒產生模擬圖，確定只存上機檔和資料嗎？')) return;
+
+  st.style.color='#0d9488'; st.textContent='儲存中…（上機檔較大，約 5~15 秒）';
+  try {
+    const cv = buildStrip();
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const buf = await blob.arrayBuffer();
+    const png = addPhys(buf, Math.round(cv.width/0.045), Math.round(cv.height/0.130));
+    const res = await psPost({
+      func: 'psSave',
+      account: document.getElementById('psAcct').value.trim(),
+      color: selectedColor,
+      series: state.series,
+      name: document.getElementById('psEmbName').value.trim(),
+      content: selectedColor + '+' + document.getElementById('psEmbName').value.trim(),
+      fileName: fname,
+      printPng: psB64(png),
+      mockupJpg: mockReady ? document.getElementById('psMockImg').src.split(',')[1] : '',
+      editState: psBuildEditState()
+    });
+    if (res && res.success){
+      st.style.color='#0d9488';
+      st.textContent = '✅ ' + (res.msg || '已登記') + '（' + fname + '）';
+    } else {
+      st.style.color='#dc2626';
+      st.textContent = '失敗：' + ((res && res.error) || '未知錯誤');
+    }
+  } catch(e){
+    st.style.color='#dc2626';
+    st.textContent = '儲存失敗：' + e.message;
+  }
+});
+
+document.getElementById('psLoadBtn').addEventListener('click', async () => {
+  const st = document.getElementById('psExportStatus');
+  const acct = (document.getElementById('psAcct').value.trim()) || prompt('要讀取哪個客人帳號？');
+  if (!acct) return;
+  document.getElementById('psAcct').value = acct;
+  st.style.color='#0d9488'; st.textContent='讀取中…';
+  try {
+    const res = await psPost({ func:'psList', account: acct });
+    if (!res || !res.success){ st.style.color='#dc2626'; st.textContent='讀取失敗：' + ((res&&res.error)||'未知錯誤'); return; }
+    const list = res.records || [];
+    if (!list.length){ st.style.color='#dc2626'; st.textContent='這個帳號沒有已儲存的紀錄'; return; }
+    let pick = 0;
+    if (list.length > 1){
+      const menu = list.map((r,i) => (i+1) + '. ' + r.fileName + '（' + r.time + '）').join('\n');
+      const ans = prompt('這個帳號有 ' + list.length + ' 筆，要讀第幾筆？\n\n' + menu, '1');
+      if (ans === null) { st.textContent=''; return; }
+      pick = Math.max(0, Math.min(list.length-1, parseInt(ans,10)-1 || 0));
+    }
+    const one = await psPost({ func:'psLoad', id: list[pick].id });
+    if (!one || !one.success){ st.style.color='#dc2626'; st.textContent='讀取失敗：' + ((one&&one.error)||'未知錯誤'); return; }
+    await psRestore(one.editState);
+    st.style.color='#0d9488'; st.textContent='✅ 已載入：' + list[pick].fileName + '（改完記得再按一次儲存登記，會覆蓋同一筆）';
+  } catch(e){
+    st.style.color='#dc2626'; st.textContent = '讀取失敗：' + e.message;
+  }
+});
+
+/* ===== 啟動 ===== */
+window.psBoot = function(){
+  fontPromise = loadFont();
+  updateFilename();
+  renderAllEditors();
+  selectSeries('A');
+};
+
+})();
+
+/* 分頁切換：預設停在原本的模式，RPA 開頁看到的畫面與改版前完全相同 */
+(function(){
+  try {
+    var header = document.querySelector('header');
+    var appEl  = document.querySelector('.app');
+    var psEl   = document.getElementById('psApp');
+    if (!header || !appEl || !psEl) return;
+    var b1 = document.createElement('button');
+    var b2 = document.createElement('button');
+    b1.type = b2.type = 'button';
+    b1.className = 'ps-tabbtn ps-cur'; b1.textContent = '行李飄帶／姓名織帶／領巾';
+    b2.className = 'ps-tabbtn';        b2.textContent = '手機掛繩';
+    b1.onclick = function(){ appEl.style.display=''; psEl.classList.remove('ps-on');
+                             b1.classList.add('ps-cur'); b2.classList.remove('ps-cur'); };
+    b2.onclick = function(){ appEl.style.display='none'; psEl.classList.add('ps-on');
+                             b2.classList.add('ps-cur'); b1.classList.remove('ps-cur');
+                             if (window.psBoot) { window.psBoot(); window.psBoot = null; } };
+    header.appendChild(b1); header.appendChild(b2);
+  } catch(e) { /* 分頁掛不上也不能影響既有功能 */ }
+})();
+</script>
+<!-- ===================== 手機掛繩模組 結束 ===================== -->
+
 </body>
 </html>
