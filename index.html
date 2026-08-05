@@ -842,8 +842,8 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   .ps-tabbtn.ps-cur { background:#F29027; color:#fff; }
   #psApp { --accent: #F29027; }
   #psApp * { box-sizing: border-box; }
-  #psApp body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei';
-         margin:0; padding:24px; background:#fafafa; color:#222; }
+  #psApp { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang TC','Microsoft JhengHei';
+           color:#222; }
   #psApp header { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
   #psApp header .dot { width:10px; height:10px; border-radius:999px; background:var(--accent); }
   #psApp h1 { font-size:20px; margin:0; letter-spacing:.3px; }
@@ -859,8 +859,8 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   #psApp input[type=text]:focus { outline:2px solid var(--accent); border-color:var(--accent); }
   #psApp select { width:100%; padding:9px 11px; border:1px solid #eaeaea; border-radius:10px; font-size:14px; background:#fff; }
   #psApp button { padding:10px 14px; border:0; border-radius:12px; background:#111; color:#fff; cursor:pointer; font-weight:800; letter-spacing:.2px; }
-  #psApp button.secondary { background:#f0f0f0; color:#111; }
-  #psApp button.accent { background:var(--accent); color:#fff; }
+  #psApp button.ps-secondary { background:#f0f0f0; color:#111; }
+  #psApp button.ps-accent { background:var(--accent); color:#fff; }
   #psApp button:disabled { opacity:.5; cursor:not-allowed; }
   #psApp .ps-muted { color:#666; font-size:12px; line-height:1.5; }
   #psApp .ps-status { font-size:12px; color:#4b5563; min-height:1.2em; }
@@ -900,9 +900,6 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   #psApp .ps-card .ps-tools { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   #psApp .ps-card input[type=range] { flex:1; min-width:70px; accent-color:var(--accent); }
   #psApp .ps-card .ps-tools button { padding:6px 9px; font-size:12px; border-radius:9px; }
-  #psApp body { padding:12px; }
-  #psApp .ps-main { grid-template-columns:1fr; }
-  #psApp .ps-tb-group input[type=text] { width:130px; }
   @media (max-width: 980px) {
     #psApp .ps-main { grid-template-columns:1fr; }
     #psApp .ps-tb-group input[type=text] { width:130px; }
@@ -938,7 +935,7 @@ function jsonpCall(url, func, params, onSuccess, onError) {
     </div>
   </div>
   <input type="file" id="psPhotoInput" accept="image/*" style="display:none;">
-  <div class="ps-tb-ps-status">
+  <div class="ps-tb-status">
     <span id="psAssetStatus" class="ps-status" style="color:var(--accent); font-weight:700;">⏳ 正在連線素材庫…</span>
     <span id="psPhotoStatus" class="ps-status"></span>
     <span id="psExportStatus" class="ps-status" style="font-weight:700;"></span>
@@ -958,7 +955,7 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   </div>
 
   <div class="ps-panel">
-    <div class="ps-mock-ps-actions">
+    <div class="ps-mock-actions">
       <button id="psMockBtn" class="ps-accent">🎀 產生模擬圖</button>
       <button id="psCopyBtn" class="ps-secondary">複製剪貼簿</button>
       <button id="psTabBtn" class="ps-secondary">新開分頁</button>
@@ -976,7 +973,7 @@ function jsonpCall(url, func, params, onSuccess, onError) {
 
 <canvas id="psMockSheet" style="display:none;"></canvas>
 
-<div id="psModalBackdrop" class="ps-ps-modal-backdrop">
+<div id="psModalBackdrop" class="ps-modal-backdrop">
   <div class="ps-modal">
     <header>
       <h3>編輯注意事項</h3>
@@ -1186,7 +1183,7 @@ for (let i=0;i<3;i++){
       '<h3>' + POS_NAME[i] + '</h3>' +
       '<div class="ps-tools">' +
         '<span class="ps-muted" style="font-size:11px;">縮放</span>' +
-        '<input type="range" id="psZoom'+i+'" min="40" max="300" value="106">' +
+        '<input type="range" id="psZoom'+i+'" min="40" max="900" value="106">' +
       '</div>' +
       '<div class="ps-tools">' +
         '<span class="ps-muted" style="font-size:11px;">旋轉</span>' +
@@ -1366,7 +1363,7 @@ for (let i=0;i<3;i++){
 }
 function setZoom(i, newScale){
   const c = state.charms[i];
-  c.scale = Math.min(c.base*3, Math.max(c.base*0.4, newScale));
+  c.scale = Math.min(c.base*9, Math.max(c.base*0.4, newScale));
   const sl = document.getElementById('psZoom'+i);
   sl.value = Math.round(c.scale / c.base * 100);
 }
@@ -1790,7 +1787,13 @@ function psBuildEditState(){
     color: selectedColor,
     name: document.getElementById('psEmbName').value.trim(),
     account: document.getElementById('psAcct').value.trim(),
-    images: photos.map(p => psShrink(p, 1000)),
+    images: photos.map((p, k) => {
+      // 放大越多，實際用到的照片範圍越小 → 存檔解析度要跟著拉高，
+      // 否則日後「讀取→微調→重存」會比第一次做的模糊
+      let z = 1;
+      state.charms.forEach((c, i) => { if (idx[i] === k) z = Math.max(z, c.scale / c.base); });
+      return psShrink(p, Math.min(2600, Math.max(1000, Math.round(1000 * z))));
+    }),
     charms: state.charms.map((c,i) => ({
       img: idx[i],
       zoom: Math.round(c.scale / c.base * 1000)/10,
