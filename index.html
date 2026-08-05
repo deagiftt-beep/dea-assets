@@ -1870,23 +1870,21 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
   }
 });
 
-/* 連線診斷：由小到大送三次，找出是「權限/部署」還是「資料量」的問題 */
+/* 連線診斷：由小到大送三次，並把伺服器端的實際狀況攤開來看 */
 document.getElementById('psTestBtn').addEventListener('click', async () => {
   const st = document.getElementById('psExportStatus');
+  const esc = t => String(t == null ? '' : t).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const sizes = [[0, '空包'], [500, '500KB'], [2000, '2MB']];
   st.style.color = '#0d9488'; st.textContent = '測試中…';
   const lines = [];
+  let last = null;
   for (const [kb, label] of sizes){
     try {
       const t0 = Date.now();
       const r = await psPost({ func: 'psPing', pad: 'x'.repeat(kb * 1024) });
       const secs = ((Date.now() - t0) / 1000).toFixed(1);
-      if (r && r.success){
-        lines.push('✅ ' + label + ' 送達（' + secs + ' 秒）' + (r.drive ? ' · 資料夾：' + r.drive : ''));
-      } else {
-        lines.push('❌ ' + label + '：' + ((r && r.error) || '未知錯誤'));
-        break;
-      }
+      if (r && r.success){ last = r; lines.push('✅ ' + label + '（' + secs + ' 秒）'); }
+      else { lines.push('❌ ' + label + '：' + ((r && r.error) || '未知錯誤')); break; }
     } catch(e){
       lines.push('❌ ' + label + '：' + e.message);
       break;
@@ -1894,12 +1892,21 @@ document.getElementById('psTestBtn').addEventListener('click', async () => {
   }
   const okCount = lines.filter(l => l[0] === '✅').length;
   let verdict;
-  if (okCount === 0)      verdict = '→ 連最小的封包都送不到，是「部署／權限」的問題，跟資料量無關';
-  else if (okCount < 3)   verdict = '→ 小封包可以、大封包不行，是「資料量」的問題，請把這段訊息給 Claude';
-  else                    verdict = '→ 連線與容量都正常，問題可能出在存檔當下的其他步驟';
-  st.style.color = okCount === 3 ? '#0d9488' : '#dc2626';
-  st.textContent = lines.join('　｜　') + '　' + verdict;
-  console.log('[手機掛繩連線測試]\n' + lines.join('\n') + '\n' + verdict);
+  if (okCount === 0)    verdict = '→ 連最小的封包都送不到，是「部署／權限」問題';
+  else if (okCount < 3) verdict = '→ 小封包可以、大封包不行，是「資料量」問題';
+  else                  verdict = '→ 連線與容量正常';
+
+  const rows = [lines.join('　｜　') + '　' + verdict];
+  if (last){
+    rows.push('程式碼看到的 ID：' + (last.idSeen || '—'));
+    rows.push('資料夾：' + (last.drive || '—'));
+    if (last.byName) rows.push(last.byName);
+    rows.push('執行身分：' + (last.runAs || '—') + '　登記表：' + (last.logSheet || '—'));
+  }
+  const allGood = okCount === 3 && last && /^✅/.test(String(last.drive || ''));
+  st.style.color = allGood ? '#0d9488' : '#dc2626';
+  st.innerHTML = rows.map(esc).join('<br>');
+  console.log('[手機掛繩連線測試]\n' + rows.join('\n'));
 });
 
 document.getElementById('psLoadBtn').addEventListener('click', async () => {
