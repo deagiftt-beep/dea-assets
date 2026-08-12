@@ -892,6 +892,21 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   #psApp .ps-modal .ps-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
   #psApp .ps-mock-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   #psApp .ps-editors { display:flex; flex-direction:column; gap:10px; }
+  #psApp .ps-list { border:1px solid #eee; border-radius:12px; padding:8px; margin-bottom:12px; background:#fbfbfb; }
+  #psApp .ps-list-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  #psApp .ps-list-head b { font-size:13px; }
+  #psApp .ps-list-head button { padding:6px 10px; font-size:12px; border-radius:9px; }
+  #psApp .ps-items { display:flex; flex-direction:column; gap:4px; max-height:250px; overflow-y:auto; }
+  #psApp .ps-item { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:9px;
+                    border:2px solid transparent; background:#fff; cursor:pointer; }
+  #psApp .ps-item.ps-cur-item { border-color:var(--accent); background:#fff7ef; }
+  #psApp .ps-item img { width:34px; height:34px; border-radius:7px; object-fit:cover; background:#eee; flex:none; }
+  #psApp .ps-it-no { font-weight:800; font-size:12px; width:20px; flex:none; color:#999; }
+  #psApp .ps-it-txt { flex:1; min-width:0; font-size:12px; line-height:1.35; overflow:hidden; }
+  #psApp .ps-it-txt small { display:block; color:#999; font-size:10.5px; }
+  #psApp .ps-it-st { font-size:13px; flex:none; }
+  #psApp .ps-it-del { border:0; background:none; color:#ccc; font-size:15px; cursor:pointer; padding:0 2px; flex:none; }
+  #psApp .ps-it-del:hover { color:#dc2626; }
   #psApp .ps-card { background:#fbfbfb; border:1px solid #eee; border-radius:12px; padding:10px; display:flex; gap:10px; align-items:flex-start; }
   #psApp .ps-card h3 { margin:0; font-size:12px; }
   #psApp .ps-card canvas { width:170px; flex:none; display:block; border-radius:10px; background:#fff; touch-action:none; cursor:grab; }
@@ -945,6 +960,16 @@ function jsonpCall(url, func, params, onSuccess, onError) {
 
 <div class="ps-main">
   <div class="ps-panel">
+    <div class="ps-list">
+      <div class="ps-list-head">
+        <b>訂單條目</b>
+        <span id="psListCount" class="ps-muted"></span>
+        <button id="psAddItem" class="ps-secondary" style="margin-left:auto;">＋ 新增</button>
+        <button id="psDupItem" class="ps-secondary">⧉ 複製這條</button>
+      </div>
+      <div class="ps-items" id="psItems"></div>
+      <div class="ps-muted" style="margin-top:6px;">點一條就切到那條；上面的小隊／配色／姓名／照片只會影響目前選到的這一條。</div>
+    </div>
     <div class="ps-link-row">
       <label class="ps-switch"><input type="checkbox" id="psLinkToggle" checked><span class="ps-slider"></span></label>
       <span style="font-weight:800; font-size:13px;">三顆連動</span>
@@ -1086,6 +1111,7 @@ for (const [name, hex] of STRAP_COLORS){
     selectedColor = name;
     document.querySelectorAll('.ps-swatch').forEach(x => x.classList.toggle('active', x === b));
     updateFilename();
+    psSync();
   });
   swEl.appendChild(b);
 }
@@ -1104,7 +1130,7 @@ async function selectSeries(S){
     state.overlay = ov; state.back = bk; state.masks = [m1, m2, m3];
     for (let i=0;i<3;i++) if (state.charms[i].photo) resetCharm(i, true);
     setAssetStatus('✅ ' + S + ' 小隊素材就緒(來源已連線)');
-    renderAllEditors(); renderStrip(); updateFilename();
+    renderAllEditors(); renderStrip(); updateFilename(); psSync();
   } catch(e){
     setAssetStatus('❌ 素材載入失敗，請確認 GitHub 上有 charms 資料夾後重新整理');
   }
@@ -1131,7 +1157,7 @@ document.getElementById('psPhotoInput').addEventListener('change', async e => {
     const im = await fileToImage(f);
     for (let i=0;i<3;i++){ state.charms[i].photo = im; resetCharm(i, true); }
     st.style.color = '#0d9488'; st.textContent = '✅ 已套用到三顆，可到右邊個別調整';
-    renderAllEditors(); renderStrip();
+    renderAllEditors(); renderStrip(); psSync();
   } catch(err){
     st.style.color = '#dc2626'; st.textContent = '無法讀取這張照片，請改用 jpg 或 png';
   }
@@ -1847,7 +1873,8 @@ function psBuildEditState(){
   };
 }
 async function psRestore(st){
-  await selectSeries(st.series);
+  psLoading = true;
+  await selectSeries(st.series);;
   selectedColor = st.color;
   document.querySelectorAll('#psSwatches .ps-swatch').forEach(b => {
     b.classList.toggle('active', b.textContent.indexOf(st.color) >= 0);
@@ -1860,7 +1887,7 @@ async function psRestore(st){
   for (let i=0;i<3;i++){
     const s = st.charms[i]; const c = state.charms[i];
     c.photo = imgs[s.img] || imgs[0] || null;
-    if (!c.photo) continue;
+    if (!c.photo){ resetCharm(i, true); continue; }
     c.base = seriesBase(c.photo) * (SIZE_K[state.series] ? SIZE_K[state.series][i] : 1);
     c.scale = c.base * (s.zoom/100);
     c.dx = s.dx; c.dy = s.dy;
@@ -1869,6 +1896,7 @@ async function psRestore(st){
   }
   renderAllEditors();
   updateFilename();
+  psLoading = false;
 }
 
 document.getElementById('psSaveBtn').addEventListener('click', async () => {
@@ -1982,12 +2010,114 @@ document.getElementById('psLoadBtn').addEventListener('click', async () => {
   }
 });
 
+/* ===================== 訂單條目清單（一張訂單多條）===================== */
+let psOrder = [];       // 每個元素 = 一條的完整資料，格式同 psBuildEditState
+let psCur = -1;         // 目前在編輯第幾條
+let psLoading = false;  // 切換載入中，避免半路被回寫蓋掉
+
+function psBlank(){
+  return { v:1, series: state.series, color: selectedColor, name:'',
+           account: document.getElementById('psAcct').value.trim(),
+           images: [], thumb:'', hasPhoto:false, saved:'', fileName:'',
+           charms: [0,1,2].map(() => ({ img:-1, zoom:106, dx:0, dy:0, rot:0, bright:100 })) };
+}
+function psThumb(){
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 68;
+    c.getContext('2d').drawImage(document.getElementById('psEd0'), 0, 0, 68, 68);
+    return c.toDataURL('image/jpeg', 0.7);
+  } catch(e){ return ''; }
+}
+/* 目前畫面 → 一條的完整資料（含照片；沒放照片也不會壞） */
+function psSnap(){
+  const it = state.charms.every(c => c.photo) ? psBuildEditState() : psBlank();
+  it.name = document.getElementById('psEmbName').value.trim();
+  it.account = document.getElementById('psAcct').value.trim();
+  it.hasPhoto = state.charms.every(c => c.photo);
+  it.thumb = psThumb();
+  return it;
+}
+/* 完整存回清單：切換／新增／刪除前一定要先做 */
+function psKeep(){
+  if (psLoading || psCur < 0 || !psOrder[psCur]) return;
+  const old = psOrder[psCur], now = psSnap();
+  now.saved = old.saved || ''; now.fileName = old.fileName || '';
+  psOrder[psCur] = now;
+}
+/* 只更新清單看得到的欄位（不重壓照片，所以很快） */
+function psSync(){
+  if (psLoading || psCur < 0 || !psOrder[psCur]) return;
+  const it = psOrder[psCur];
+  it.series = state.series;
+  it.color = selectedColor;
+  it.name = document.getElementById('psEmbName').value.trim();
+  it.hasPhoto = state.charms.every(c => c.photo);
+  it.thumb = psThumb();
+  psRenderList();
+}
+const PS_BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+function psRenderList(){
+  const box = document.getElementById('psItems');
+  box.innerHTML = '';
+  psOrder.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'ps-item' + (i === psCur ? ' ps-cur-item' : '');
+    row.innerHTML =
+      '<span class="ps-it-no">' + (i+1) + '</span>' +
+      '<img src="' + (it.thumb || PS_BLANK_IMG) + '">' +
+      '<span class="ps-it-txt">' + (it.name || '（未填姓名）') + '　' + it.color + '・' +
+        it.series + ' ' + (SERIES_NAME[it.series] || '') +
+        '<small>' + (it.hasPhoto ? '已放照片' : '⚠ 還沒放照片') + '</small></span>' +
+      '<span class="ps-it-st">' + (it.saved ? '✅' : '') + '</span>' +
+      '<button class="ps-it-del" title="刪除這條">✕</button>';
+    row.addEventListener('click', e => {
+      if (e.target.classList.contains('ps-it-del')) psDel(i); else psGo(i);
+    });
+    box.appendChild(row);
+  });
+  document.getElementById('psListCount').textContent =
+    psOrder.length ? ('共 ' + psOrder.length + ' 條') : '（還沒有條目）';
+}
+async function psGo(i){
+  if (i === psCur || i < 0 || i >= psOrder.length) return;
+  psKeep();
+  psCur = i;
+  await psRestore(psOrder[i]);
+  psRenderList();
+}
+function psAdd(copy){
+  psKeep();
+  let it;
+  if (copy && psCur >= 0 && psOrder[psCur]){
+    it = JSON.parse(JSON.stringify(psOrder[psCur]));
+    it.saved = ''; it.fileName = '';
+  } else { it = psBlank(); }
+  psOrder.push(it);
+  psCur = psOrder.length - 1;
+  psRestore(it).then(psRenderList);
+}
+function psDel(i){
+  if (!confirm('刪除第 ' + (i+1) + ' 條？（已上傳雲端的檔案不會一起刪）')) return;
+  psKeep();
+  psOrder.splice(i, 1);
+  if (!psOrder.length){ psCur = -1; psAdd(false); return; }
+  if (psCur === i){ psCur = Math.min(i, psOrder.length - 1); psRestore(psOrder[psCur]).then(psRenderList); }
+  else { if (psCur > i) psCur--; psRenderList(); }
+}
+document.getElementById('psAddItem').addEventListener('click', () => psAdd(false));
+document.getElementById('psDupItem').addEventListener('click', () => psAdd(true));
+document.getElementById('psEmbName').addEventListener('input', psSync);
+document.getElementById('psAcct').addEventListener('input', () => {
+  const a = document.getElementById('psAcct').value.trim();   // 帳號整張訂單共用
+  psOrder.forEach(it => it.account = a);
+});
+  
 /* ===== 啟動 ===== */
 window.psBoot = function(){
   fontPromise = loadFont();
   updateFilename();
   renderAllEditors();
-  selectSeries('A');
+  selectSeries('A').then(() => psAdd(false));
 };
 
 })();
