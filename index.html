@@ -1712,9 +1712,11 @@ async function genMock(){
     img.style.display = 'block';
     document.getElementById('psMockPlaceholder').style.display = 'none';
     st.textContent = '✅ 模擬圖完成，可複製或長按儲存';
+    return true;
   } catch(e){
     st.style.color = '#dc2626';
     st.textContent = '產生失敗:' + (e.message || '未知錯誤');
+    return false;
   }
 }
 document.getElementById('psMockBtn').addEventListener('click', genMock);
@@ -1912,15 +1914,17 @@ async function psRestore(st){
   psLoading = false;
 }
 
-document.getElementById('psSaveBtn').addEventListener('click', async () => {
+document.getElementById('psSaveBtn').addEventListener('click', () => psSaveCur(false));
+async function psSaveCur(quiet){
   const st = document.getElementById('psExportStatus');
   const fname = buildFilename();
   const missing = [0,1,2].filter(i => !state.charms[i].photo);
-  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return; }
-  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片：' + missing.map(i=>POS_NAME[i]).join('、'); return; }
-  if (!fname){ st.style.color='#dc2626'; st.textContent='請先填客人帳號和刺繡姓名'; return; }
-  const mockReady = document.getElementById('psMockImg').style.display !== 'none';
-  if (!mockReady && !confirm('還沒產生模擬圖，確定只存上機檔和資料嗎？')) return;
+  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return false; }
+  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片：' + missing.map(i=>POS_NAME[i]).join('、'); return false; }
+  if (!fname){ st.style.color='#dc2626'; st.textContent='請先填客人帳號和刺繡姓名'; return false; }
+  st.style.color='#0d9488'; st.textContent='產生模擬圖中…';
+  const mockReady = await genMock();          // 這條的模擬圖一定跟著存，客服不會漏
+  if (!mockReady){ if (!quiet) alert('模擬圖產生失敗，這條沒有存。'); return false; }
 
   st.style.color='#0d9488'; st.textContent='儲存中…（上機檔較大，約 5~15 秒）';
   try {
@@ -1940,6 +1944,7 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
       name: document.getElementById('psEmbName').value.trim(),
       content: selectedColor + '+' + document.getElementById('psEmbName').value.trim(),
       fileName: fname,
+      dropOld: (psCur >= 0 && psOrder[psCur] && psOrder[psCur].oldFile) ? psOrder[psCur].oldFile : '',
       printPng: psB64(png),
       mockupJpg: mockReady ? psSmallMock() : '',
       editState: psBuildEditState()
@@ -1953,15 +1958,18 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
         psOrder[psCur].oldFile = '';
         psRenderList();
       }
+      return true;
     } else {
       st.style.color='#dc2626';
       st.textContent = '失敗：' + ((res && res.error) || '未知錯誤');
+      return false;
     }
   } catch(e){
     st.style.color='#dc2626';
     st.textContent = '儲存失敗：' + e.message;
+    return false;
   }
-});
+}
 
 /* 連線診斷：由小到大送三次，並把伺服器端的實際狀況攤開來看 */
 document.getElementById('psTestBtn').addEventListener('click', async () => {
@@ -2060,7 +2068,7 @@ function psSnap(){
 function psKeep(){
   if (psLoading || psCur < 0 || !psOrder[psCur]) return;
   const old = psOrder[psCur], now = psSnap();
-  now.saved = old.saved || ''; now.fileName = old.fileName || '';
+  now.saved = old.saved || ''; now.fileName = old.fileName || ''; now.oldFile = old.oldFile || '';
   psOrder[psCur] = now;
 }
 /* 只更新清單看得到的欄位（不重壓照片，所以很快） */
@@ -2139,7 +2147,14 @@ function psAdd(copy){
   psRestore(it).then(psRenderList);
 }
 function psDel(i){
-  if (!confirm('刪除第 ' + (i+1) + ' 條？（已上傳雲端的檔案不會一起刪）')) return;
+  const it0 = psOrder[i];
+  const savedFile = (it0 && it0.saved) ? it0.fileName : '';
+  if (!confirm('刪除第 ' + (i+1) + ' 條？' + (savedFile ? '\n（雲端已存的上機檔與登記那一行會一起刪掉）' : ''))) return;
+  if (savedFile){
+    psPost({ func:'psDrop', fileName: savedFile,
+             account: it0.account || document.getElementById('psAcct').value.trim() }, 2)
+      .catch(() => {});
+  }
   psKeep();
   psOrder.splice(i, 1);
   if (!psOrder.length){ psCur = -1; psAdd(false); return; }
@@ -2168,15 +2183,38 @@ function psParseLine(raw){
   out.name = rest.join(' ').trim();
   return out;
 }
+const psPasteBox = document.createElement('div');
+psPasteBox.className = 'ps-modal-backdrop';
+psPasteBox.innerHTML =
+  '<div class="ps-modal">' +
+    '<header><h3>貼上名單</h3><button class="ps-secondary" id="psPasteClose">關閉</button></header>' +
+    '<div class="ps-muted" style="margin-bottom:8px;">一行一條，格式 <b>配色＋小隊＋姓名</b>（例：粉色+A+小麥）。' +
+    '配色或小隊沒寫就沿用目前選的，只打名字也可以；行首的「1.」「3)」會自動去掉。</div>' +
+    '<textarea id="psPasteText" placeholder="粉色+A+小麥&#10;藍色+A+Maico&#10;薄荷綠+C+咪咪"></textarea>' +
+    '<div class="ps-muted" id="psPastePrev" style="margin-top:8px; max-height:110px; overflow-y:auto; line-height:1.6;"></div>' +
+    '<div class="ps-actions"><button class="ps-accent" id="psPasteOk">建立條目</button></div>' +
+  '</div>';
+document.getElementById('psApp').appendChild(psPasteBox);
+
+function psPastePreview(){
+  const rows = document.getElementById('psPasteText').value.split(/\r?\n/).map(psParseLine).filter(x => x && x.name);
+  document.getElementById('psPastePrev').innerHTML = rows.length
+    ? '<b style="color:#0d9488;">將建立 ' + rows.length + ' 條：</b><br>' +
+      rows.map((r,i) => (i+1) + '. ' + (r.color || selectedColor) + '・' + (r.series || state.series) + '　' + r.name).join('<br>')
+    : '<span style="color:#b45309;">還沒讀到任何一條</span>';
+}
 document.getElementById('psPasteItem').addEventListener('click', () => {
-  const demo = '粉色+A+小麥\n藍色+A+Maico\n薄荷綠+C+咪咪';
-  const txt = prompt(
-    '一行一條，格式：配色＋小隊＋姓名\n\n' +
-    '配色或小隊沒寫就沿用目前選的，只打名字也可以。\n' +
-    '（會加在清單最後面，不會蓋掉現有的條目）\n', demo);
-  if (txt === null) return;
-  const lines = txt.split(/\r?\n/).map(psParseLine).filter(x => x && x.name);
+  document.getElementById('psPasteText').value = '';
+  psPastePreview();
+  psPasteBox.style.display = 'flex';
+  setTimeout(() => document.getElementById('psPasteText').focus(), 50);
+});
+document.getElementById('psPasteText').addEventListener('input', psPastePreview);
+document.getElementById('psPasteClose').addEventListener('click', () => psPasteBox.style.display = 'none');
+document.getElementById('psPasteOk').addEventListener('click', () => {
+  const lines = document.getElementById('psPasteText').value.split(/\r?\n/).map(psParseLine).filter(x => x && x.name);
   if (!lines.length){ alert('沒有讀到任何一條，請確認每行都有名字。'); return; }
+  psPasteBox.style.display = 'none';
   psKeep();
   const acct = document.getElementById('psAcct').value.trim();
   lines.forEach(ln => {
