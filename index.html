@@ -1729,25 +1729,67 @@ document.getElementById('psSaveCaption').addEventListener('click', () => {
    ※ 這不是 v14 上面那個「登記系統 API 網址」，兩者互不影響 */
 const PS_SHEET_GAS = 'https://script.google.com/macros/s/AKfycbxeKCnWx84fSpzSgF0AYkBBXshkva8HKbvqdOnG2XlViqhZwLNhCLzR0ThQ9JgjzJU/exec';
 function psGasUrl(){ return PS_SHEET_GAS; }
-async function psPost(payload){
-  const res = await fetch(psGasUrl(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },  // 純文字避免 preflight，GAS 才收得到
-    body: JSON.stringify(payload)
-  });
-  const txt = await res.text();
-  try { return JSON.parse(txt); }
-  catch(e){
-    // 收到網頁而不是 JSON → 幾乎都是「部署」或「資料量」的問題，不是程式錯誤
-    if (/<!DOCTYPE|<html/i.test(txt)) {
-      if (/accounts\.google|登入|Sign in|網頁文書處理/.test(txt)) {
-        throw new Error('Google 要求登入才給資料 → 請到 Apps Script「管理部署作業」把「誰可以存取」改成「任何人」，再以「新版本」重新部署');
+/* 送出請求。
+   已確認的現象：GAS 其實「執行成功了」（試算表與 Drive 都有寫進去），
+   只是回應在半路變成一頁 HTML 送不回來 —— 是 Google 端的回應通道問題，
+   跟部署設定無關，也不是程式錯誤。
+
+   所以遇到 HTML 時不要傻傻重送 3MB（白做工又要再等十幾秒），
+   而是先用 verify 問一句「剛剛那筆到底有沒有進去」，
+   有的話就直接當成功；真的沒進去才重送。 */
+async function psPost(payload, tries, verify){
+  tries = tries || 3;
+  let lastErr = null;
+  const st = document.getElementById('psExportStatus');
+  const say = t => { if (st){ st.style.color = '#b45309'; st.textContent = t; } };
+
+  for (let i = 0; i < tries; i++){
+    let gotHtml = false;
+    try {
+      const base = psGasUrl();
+      const url = base + (base.indexOf('?') > -1 ? '&' : '?') + '_t=' + Date.now();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },  // 純文字避免 preflight，GAS 才收得到
+        body: JSON.stringify(payload),
+        redirect: 'follow'
+      });
+      const txt = await res.text();
+      try { return JSON.parse(txt); }
+      catch(e){
+        if (/<!DOCTYPE|<html/i.test(txt)){
+          gotHtml = true;
+          lastErr = new Error('回應在傳輸途中遺失（HTTP ' + res.status + '）');
+        } else {
+          throw new Error('伺服器回應不是 JSON：' + txt.slice(0, 120));
+        }
       }
-      throw new Error('伺服器回了一頁網頁而不是資料（HTTP ' + res.status + '）→ 多半是部署版本不對或資料量過大，請按「測試連線」找出原因');
+    } catch(err){
+      if (!gotHtml && !/Failed to fetch|NetworkError|load failed/i.test(err.message || '')) throw err;
+      lastErr = lastErr || err;
     }
-    throw new Error('伺服器回應不是 JSON：' + txt.slice(0, 120));
+
+    // ★ 先確認伺服器那邊到底有沒有做完，有的話就不用重送了
+    if (verify){
+      say('回應遺失，正在確認資料有沒有寫進去…');
+      await new Promise(r => setTimeout(r, 1500));   // 給 Drive 一點時間讓檔案可見
+      try {
+        const done = await verify();
+        if (done) return { success: true, _verified: true,
+                           msg: '已完成（回應在途中遺失，已確認資料正確寫入）' };
+      } catch(e2){ /* 確認失敗就當作沒做完，往下重送 */ }
+    }
+
+    if (i < tries - 1){
+      say('連線不穩，自動重試中…（' + (i + 2) + '/' + tries + '）');
+      await new Promise(r => setTimeout(r, 1200 * (i + 1)));
+    }
   }
+  throw new Error((lastErr ? lastErr.message : '連線失敗')
+    + ' —— 已自動重試 ' + tries + ' 次。請到 Drive 或「模擬圖登記」確認一下，'
+    + '很可能其實已經存好了；模擬圖與上機檔也都還在畫面上，不用重做。');
 }
+
 function psB64(bytes){
   let s = '', CH = 0x8000;
   for (let i=0; i<bytes.length; i+=CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
@@ -1845,6 +1887,10 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     const buf = await blob.arrayBuffer();
     const png = addPhys(buf, Math.round(cv.width/0.045), Math.round(cv.height/0.130));
+    const verify = async () => {
+      const r = await psPost({ func: 'psVerify', fileName: fname }, 2);
+      return !!(r && r.found);
+    };
     const res = await psPost({
       func: 'psSave',
       account: document.getElementById('psAcct').value.trim(),
@@ -1856,7 +1902,7 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
       printPng: psB64(png),
       mockupJpg: mockReady ? psSmallMock() : '',
       editState: psBuildEditState()
-    });
+    }, 3, verify);
     if (res && res.success){
       st.style.color='#0d9488';
       st.textContent = '✅ ' + (res.msg || '已登記') + '（' + fname + '）';
