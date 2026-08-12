@@ -966,6 +966,11 @@ function jsonpCall(url, func, params, onSuccess, onError) {
         <span id="psListCount" class="ps-muted"></span>
         <button id="psAddItem" class="ps-secondary" style="margin-left:auto;">＋ 新增</button>
         <button id="psDupItem" class="ps-secondary">⧉ 複製這條</button>
+        <button id="psPasteItem" class="ps-secondary">📋 貼名單</button>
+        <button id="psBatchPhoto" class="ps-secondary">📷 批次照片</button>
+      </div>
+      <input type="file" id="psBatchInput" accept="image/*" multiple style="display:none;">
+      <div class="ps-list-head" style="margin-bottom:0;">
       </div>
       <div class="ps-items" id="psItems"></div>
       <div class="ps-muted" style="margin-top:6px;">點一條就切到那條；上面的小隊／配色／姓名／照片只會影響目前選到的這一條。</div>
