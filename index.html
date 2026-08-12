@@ -1280,6 +1280,7 @@ function renderStrip(){}
 /* ===== 互動:拖曳 / 雙指縮放 / 滾輪 / 滑桿(支援三顆連動) ===== */
 const linkEl = document.getElementById('psLinkToggle');
 function targets(i){
+  psDirty();
   return (linkEl.checked ? [0,1,2] : [i]).filter(j => state.charms[j].photo);
 }
 function applyDrag(i, fdx, fdy){
@@ -1399,7 +1400,14 @@ function buildFilename(){
   const acct = document.getElementById('psAcct').value.trim();
   const name = document.getElementById('psEmbName').value.trim();
   if (!acct || !name) return null;
-  return acct + '_' + selectedColor + '_' + state.series + '+' + name + '.png';
+  let dup = 0;                                    // 同配色同小隊同名字 → 自動加流水號
+  for (let i = 0; i < psCur; i++){
+    const it = psOrder[i];
+    if (it && it.color === selectedColor && it.series === state.series
+        && (it.name || '').trim() === name) dup++;
+  }
+  return acct + '_' + selectedColor + '_' + state.series + '+' + name
+       + (dup ? '_' + (dup + 1) : '') + '.png';
 }
 function updateFilename(){
   document.getElementById('psFnamePreview').textContent = buildFilename() || '（填好帳號和姓名後顯示）';
@@ -1934,6 +1942,12 @@ document.getElementById('psSaveBtn').addEventListener('click', async () => {
     if (res && res.success){
       st.style.color='#0d9488';
       st.textContent = '✅ ' + (res.msg || '已登記') + '（' + fname + '）';
+      if (psCur >= 0 && psOrder[psCur]){
+        psOrder[psCur].saved = '1';
+        psOrder[psCur].fileName = fname;
+        psOrder[psCur].oldFile = '';
+        psRenderList();
+      }
     } else {
       st.style.color='#dc2626';
       st.textContent = '失敗：' + ((res && res.error) || '未知錯誤');
@@ -2053,7 +2067,30 @@ function psSync(){
   it.name = document.getElementById('psEmbName').value.trim();
   it.hasPhoto = state.charms.every(c => c.photo);
   it.thumb = psThumb();
+  psDirty();
   psRenderList();
+}
+/* 條目被改動過 → ✅ 收回，並記下舊檔名（階段 4 存檔時要清掉雲端的舊檔） */
+function psDirty(){
+  if (psLoading || psCur < 0) return;
+  const it = psOrder[psCur];
+  if (!it || !it.saved) return;
+  const now = buildFilename();
+  if (it.fileName && now && it.fileName !== now) it.oldFile = it.oldFile || it.fileName;
+  it.saved = '';
+  psRenderList();
+}
+/* 清單上的同名警示 */
+function psDupTag(i){
+  const it = psOrder[i];
+  if (!it || !it.name) return '';
+  let d = 0;
+  for (let k = 0; k < i; k++){
+    const p = psOrder[k];
+    if (p && p.color === it.color && p.series === it.series
+        && (p.name || '').trim() === it.name.trim()) d++;
+  }
+  return d ? ' <b style="color:#b45309;font-size:10px;">同名 #' + (d + 1) + '</b>' : '';
 }
 const PS_BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function psRenderList(){
@@ -2065,7 +2102,7 @@ function psRenderList(){
     row.innerHTML =
       '<span class="ps-it-no">' + (i+1) + '</span>' +
       '<img src="' + (it.thumb || PS_BLANK_IMG) + '">' +
-      '<span class="ps-it-txt">' + (it.name || '（未填姓名）') + '　' + it.color + '・' +
+      '<span class="ps-it-txt">' + (it.name || '（未填姓名）') + psDupTag(i) + '　' + it.color + '・' +
         it.series + ' ' + (SERIES_NAME[it.series] || '') +
         '<small>' + (it.hasPhoto ? '已放照片' : '⚠ 還沒放照片') + '</small></span>' +
       '<span class="ps-it-st">' + (it.saved ? '✅' : '') + '</span>' +
