@@ -1915,9 +1915,35 @@ async function psRestore(st){
 }
 
 document.getElementById('psSaveBtn').addEventListener('click', () => psSaveCur(false));
+
+/* 同一時間只准存一條：存檔中途換條目，buildStrip 會抓到新那條的畫面，
+   做出「A 的檔名、B 的圖」；完成時 psCur 也早就跑掉，✅ 會蓋到別條身上。 */
+let psBusy = false;
+function psSetBusyUI(on){
+  const box = document.getElementById('psItems');
+  if (box){ box.style.opacity = on ? '.45' : ''; box.style.pointerEvents = on ? 'none' : ''; }
+  ['psAddItem','psDupItem','psPasteItem','psBatchPhoto','psSaveBtn','psLoadBtn','psExportBtn']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = on; });
+}
 async function psSaveCur(quiet){
+  if (psBusy){
+    const st0 = document.getElementById('psExportStatus');
+    st0.style.color = '#b45309';
+    st0.textContent = '上一條還在存，等它出現 ✅ 再存下一條';
+    return false;
+  }
+  psBusy = true; psSetBusyUI(true);
+  try { return await psSaveOne_(quiet); }
+  finally {
+    psBusy = false; psSetBusyUI(false);
+    psOrder.forEach(x => { x.busy = 0; });
+    psRenderList();
+  }
+}
+async function psSaveOne_(quiet){
   const st = document.getElementById('psExportStatus');
   const fname = buildFilename();
+  const idx = psCur;                      // ★ 綁定「按下去的當下」這條，之後一律用 idx
   const missing = [0,1,2].filter(i => !state.charms[i].photo);
   if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return false; }
   if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片：' + missing.map(i=>POS_NAME[i]).join('、'); return false; }
@@ -1927,6 +1953,7 @@ async function psSaveCur(quiet){
   if (!mockReady){ if (!quiet) alert('模擬圖產生失敗，這條沒有存。'); return false; }
 
   st.style.color='#0d9488'; st.textContent='儲存中…（上機檔較大，約 5~15 秒）';
+  if (idx >= 0 && psOrder[idx]){ psOrder[idx].busy = 1; psRenderList(); }
   try {
     const cv = buildStrip();
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
@@ -1944,7 +1971,7 @@ async function psSaveCur(quiet){
       name: document.getElementById('psEmbName').value.trim(),
       content: selectedColor + '+' + document.getElementById('psEmbName').value.trim(),
       fileName: fname,
-      dropOld: (psCur >= 0 && psOrder[psCur] && psOrder[psCur].oldFile) ? psOrder[psCur].oldFile : '',
+      dropOld: (idx >= 0 && psOrder[idx] && psOrder[idx].oldFile) ? psOrder[idx].oldFile : '',
       printPng: psB64(png),
       mockupJpg: mockReady ? psSmallMock() : '',
       editState: psBuildEditState()
@@ -1952,10 +1979,10 @@ async function psSaveCur(quiet){
     if (res && res.success){
       st.style.color='#0d9488';
       st.textContent = '✅ ' + (res.msg || '已登記') + '（' + fname + '）';
-      if (psCur >= 0 && psOrder[psCur]){
-        psOrder[psCur].saved = '1';
-        psOrder[psCur].fileName = fname;
-        psOrder[psCur].oldFile = '';
+      if (idx >= 0 && psOrder[idx]){
+        psOrder[idx].saved = '1';
+        psOrder[idx].fileName = fname;
+        psOrder[idx].oldFile = '';
         psRenderList();
       }
       return true;
@@ -2118,7 +2145,7 @@ function psRenderList(){
       '<span class="ps-it-txt">' + (it.name || '（未填姓名）') + psDupTag(i) + '　' + it.color + '・' +
         it.series + ' ' + (SERIES_NAME[it.series] || '') +
         '<small>' + (it.hasPhoto ? '已放照片' : '⚠ 還沒放照片') + '</small></span>' +
-      '<span class="ps-it-st">' + (it.saved ? '✅' : '') + '</span>' +
+      '<span class="ps-it-st">' + (it.busy ? '⏳' : (it.saved ? '✅' : '')) + '</span>' +
       '<button class="ps-it-del" title="刪除這條">✕</button>';
     row.addEventListener('click', e => {
       if (e.target.classList.contains('ps-it-del')) psDel(i); else psGo(i);
@@ -2148,12 +2175,23 @@ function psAdd(copy){
 }
 function psDel(i){
   const it0 = psOrder[i];
-  const savedFile = (it0 && it0.saved) ? it0.fileName : '';
-  if (!confirm('刪除第 ' + (i+1) + ' 條？' + (savedFile ? '\n（雲端已存的上機檔與登記那一行會一起刪掉）' : ''))) return;
+  const savedFile = (it0 && it0.fileName) ? it0.fileName : '';   // 存過就要清，就算後來改動掉了 ✅
+  if (!confirm('刪除第 ' + (i+1) + ' 條？' + (savedFile ? '\n（雲端上機檔 ' + savedFile + ' 與登記那一行會一起刪掉）' : ''))) return;
   if (savedFile){
+    const stD = document.getElementById('psExportStatus');
+    stD.style.color = '#b45309'; stD.textContent = '刪除雲端檔案中…';
     psPost({ func:'psDrop', fileName: savedFile,
              account: it0.account || document.getElementById('psAcct').value.trim() }, 2)
-      .catch(() => {});
+      .then(r => {
+        const ok = !!(r && r.success);
+        stD.style.color = ok ? '#0d9488' : '#dc2626';
+        stD.textContent = ok ? '✅ 雲端已刪除：' + savedFile
+                             : '⚠ 雲端沒刪成功，請自己到 _未對單 刪掉：' + savedFile;
+      })
+      .catch(() => {
+        stD.style.color = '#dc2626';
+        stD.textContent = '⚠ 雲端沒刪成功，請自己到 _未對單 刪掉：' + savedFile;
+      });
   }
   psKeep();
   psOrder.splice(i, 1);
