@@ -1353,7 +1353,8 @@ for (let i=0;i<3;i++){
   const pointers = new Map();
   let lastDist = 0;
   cv.addEventListener('click', () => {
-    if (!state.charms[i].photo) document.getElementById('psFile'+i).click();
+    // 空格點擊 = 按「📷 上傳照片」，一張套到三顆；要單顆換照片請用「換照片」鈕
+    if (!state.charms[i].photo) document.getElementById('psPhotoInput').click();
   });
   cv.style.cursor = 'pointer';
   cv.addEventListener('pointerdown', e => {
