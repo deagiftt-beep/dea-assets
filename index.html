@@ -987,6 +987,7 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   <div class="ps-panel">
     <div class="ps-mock-actions">
       <button id="psMockBtn" class="ps-accent">🎀 產生模擬圖</button>
+      <button id="psAllMockBtn" class="ps-accent" style="background:#0d9488;">📄 全部拼版</button>
       <button id="psCopyBtn" class="ps-secondary">複製剪貼簿</button>
       <button id="psTabBtn" class="ps-secondary">新開分頁</button>
       <button id="psCapBtn" class="ps-secondary">注意事項</button>
@@ -994,6 +995,12 @@ function jsonpCall(url, func, params, onSuccess, onError) {
       <label class="ps-switch"><input type="checkbox" id="psGuideToggle" checked><span class="ps-slider"></span></label>
     </div>
     <div id="psMockStatus" class="ps-status" style="font-weight:700; margin-top:6px;"></div>
+    <div id="psSheetNav" style="display:none; gap:8px; align-items:center; margin-top:8px;">
+      <button id="psSheetPrev" class="ps-secondary">◀ 上一張</button>
+      <span id="psSheetAt" class="ps-muted" style="font-weight:700;"></span>
+      <button id="psSheetNext" class="ps-secondary">下一張 ▶</button>
+      <span class="ps-muted" style="margin-left:auto;">每張都要傳給客人</span>
+    </div>
     <div style="text-align:center; margin-top:8px;">
       <span id="psMockPlaceholder" class="ps-muted" style="line-height:100px; display:inline-block;">按「產生模擬圖」後顯示（手機可長按圖片儲存或拷貝）</span>
       <img id="psMockImg" style="width:100%; max-width:520px; display:none; border-radius:12px; border:1px solid #eee;">
@@ -1732,6 +1739,111 @@ async function genMock(){
 }
 document.getElementById('psMockBtn').addEventListener('click', genMock);
 
+/* ---- 拼版模擬圖：4 條一張（2×2），編號跟清單一致 ---- */
+const PS_SHEET_N = 4, PS_CELL_W = 540, PS_PAD = 22, PS_LABEL_H = 46;
+let psSheets = [], psSheetAt = 0;
+
+async function psMakeSheets(){
+  const st = document.getElementById('psMockStatus');
+  if (!psOrder.length){ st.style.color='#dc2626'; st.textContent='清單是空的'; return; }
+  const bad = psOrder.map((it,i) => (!it.hasPhoto || !it.name) ? (i+1) : 0).filter(Boolean);
+  if (bad.length){
+    st.style.color='#dc2626';
+    st.textContent = '第 ' + bad.join('、') + ' 條還沒放照片或沒填姓名，補完再產生';
+    return;
+  }
+  const guide = document.getElementById('psGuideToggle').checked;
+  const back = psCur;
+  psKeep();
+  psSheets = [];
+  try {
+    const cells = [];
+    for (let i = 0; i < psOrder.length; i++){
+      st.style.color='#0d9488';
+      st.textContent = '產生中… ' + (i+1) + ' / ' + psOrder.length;
+      await psRestore(psOrder[i]);
+      const cv = await psDrawOne(guide, false);
+      cells.push({ cv: cv, no: i+1, it: psOrder[i] });
+    }
+    for (let s = 0; s < cells.length; s += PS_SHEET_N){
+      psSheets.push(psComposeSheet(cells.slice(s, s + PS_SHEET_N),
+                                   Math.floor(s / PS_SHEET_N) + 1,
+                                   Math.ceil(cells.length / PS_SHEET_N)));
+    }
+    psSheetAt = 0;
+    psShowSheet();
+    st.style.color='#0d9488';
+    st.textContent = '✅ 共 ' + psOrder.length + ' 條、' + psSheets.length + ' 張，逐張傳給客人確認';
+  } catch(e){
+    st.style.color='#dc2626'; st.textContent = '產生失敗：' + (e.message || '未知錯誤');
+  } finally {
+    if (back >= 0 && psOrder[back]){ psCur = back; await psRestore(psOrder[back]); psRenderList(); }
+  }
+}
+
+function psComposeSheet(cells, page, pages){
+  const cols = cells.length > 1 ? 2 : 1;
+  const rows = Math.ceil(cells.length / cols);
+  const k = PS_CELL_W / MOCK.W;
+  const cellH = Math.max(...cells.map(c => c.cv.height)) * k + PS_LABEL_H;
+  const capC = document.createElement('canvas').getContext('2d');
+  capC.font = CAP_FONT;
+  const capLines = wrapCaption(capC, captionText, cols * PS_CELL_W + PS_PAD * (cols - 1) - 20);
+
+  const W = PS_PAD * 2 + cols * PS_CELL_W + PS_PAD * (cols - 1);
+  const headH = 58;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = headH + rows * cellH + PS_PAD * (rows - 1) + captionHeight(capLines) + 40;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height);
+
+  x.textBaseline = 'top'; x.textAlign = 'left';
+  x.fillStyle = '#7C3500';
+  x.font = "700 26px system-ui, -apple-system, 'PingFang TC','Microsoft JhengHei'";
+  x.fillText('手機掛繩　第 ' + page + ' / ' + pages + ' 張', PS_PAD, 14);
+
+  cells.forEach((c, i) => {
+    const cx = PS_PAD + (i % cols) * (PS_CELL_W + PS_PAD);
+    const cy = headH + Math.floor(i / cols) * (cellH + PS_PAD);
+    x.fillStyle = '#FFF5EB';
+    x.fillRect(cx, cy, PS_CELL_W, PS_LABEL_H - 8);
+    x.fillStyle = '#F29027';
+    x.fillRect(cx, cy, 6, PS_LABEL_H - 8);
+    x.fillStyle = '#7C3500';
+    x.font = "700 22px system-ui, -apple-system, 'PingFang TC','Microsoft JhengHei'";
+    x.fillText('第 ' + c.no + ' 條　' + c.it.name + '　' + c.it.color + '・'
+               + c.it.series + ' ' + (SERIES_NAME[c.it.series] || ''), cx + 18, cy + 6);
+    x.drawImage(c.cv, cx, cy + PS_LABEL_H, PS_CELL_W, c.cv.height * k);
+  });
+
+  if (capLines.length){
+    drawCaption(x, capLines, headH + rows * cellH + PS_PAD * (rows - 1), cv.width);
+  }
+  return cv;
+}
+
+function psShowSheet(){
+  const cv = psSheets[psSheetAt];
+  if (!cv) return;
+  const dst = document.getElementById('psMockSheet');
+  dst.width = cv.width; dst.height = cv.height;
+  dst.getContext('2d').drawImage(cv, 0, 0);
+  const img = document.getElementById('psMockImg');
+  img.src = dst.toDataURL('image/jpeg', 0.9);
+  img.style.display = 'block';
+  document.getElementById('psMockPlaceholder').style.display = 'none';
+  document.getElementById('psSheetNav').style.display = psSheets.length > 1 ? 'flex' : 'none';
+  document.getElementById('psSheetAt').textContent = '第 ' + (psSheetAt + 1) + ' / ' + psSheets.length + ' 張';
+}
+document.getElementById('psAllMockBtn').addEventListener('click', psMakeSheets);
+document.getElementById('psSheetPrev').addEventListener('click', () => {
+  if (psSheetAt > 0){ psSheetAt--; psShowSheet(); }
+});
+document.getElementById('psSheetNext').addEventListener('click', () => {
+  if (psSheetAt < psSheets.length - 1){ psSheetAt++; psShowSheet(); }
+});
+
 async function canvasToUnder2MB(canvas){
   const blobPng = await new Promise(res => canvas.toBlob(res, 'image/png'));
   if (blobPng && blobPng.size < 2_000_000) return { blob:blobPng, type:'image/png' };
@@ -2241,18 +2353,29 @@ function psDel(i){
   if (!confirm('刪除第 ' + (i+1) + ' 條？' + (savedFile ? '\n（雲端上機檔 ' + savedFile + ' 與登記那一行會一起刪掉）' : ''))) return;
   if (savedFile){
     const stD = document.getElementById('psExportStatus');
+    stD.innerHTML = '';                      // 清掉上一則（測試連線會塞 innerHTML 進來）
     stD.style.color = '#b45309'; stD.textContent = '刪除雲端檔案中…';
+    // 刪除的回應也會在半路遺失。回應收不到時反查檔案還在不在，不在就是刪掉了。
+    const goneCheck = async () => {
+      const r = await psPost({ func:'psVerify', fileName: savedFile }, 1, null, 8000);
+      return !!(r && r.success && !r.found);
+    };
     psPost({ func:'psDrop', fileName: savedFile,
-             account: it0.account || document.getElementById('psAcct').value.trim() }, 2)
+             account: it0.account || document.getElementById('psAcct').value.trim() },
+           2, goneCheck)
       .then(r => {
         const ok = !!(r && r.success);
         stD.style.color = ok ? '#0d9488' : '#dc2626';
         stD.textContent = ok ? '✅ 雲端已刪除：' + savedFile
                              : '⚠ 雲端沒刪成功，請自己到 _未對單 刪掉：' + savedFile;
       })
-      .catch(() => {
-        stD.style.color = '#dc2626';
-        stD.textContent = '⚠ 雲端沒刪成功，請自己到 _未對單 刪掉：' + savedFile;
+      .catch(async () => {
+        let gone = false;
+        try { gone = await goneCheck(); } catch(e){}
+        stD.style.color = gone ? '#0d9488' : '#dc2626';
+        stD.textContent = gone
+          ? '✅ 雲端已刪除：' + savedFile + '（回應遺失，已反查確認）'
+          : '⚠ 雲端沒刪成功，請自己到 _未對單 刪掉：' + savedFile;
       });
   }
   psKeep();
