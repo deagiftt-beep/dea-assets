@@ -946,7 +946,8 @@ function jsonpCall(url, func, params, onSuccess, onError) {
       <button id="psExportBtn">🖨️ 輸出上機檔</button>
       <button id="psSaveBtn" style="background:#0d9488;">💾 儲存登記</button>
       <button id="psTestBtn" class="ps-secondary">🔌 測試連線</button>
-      <button id="psLoadBtn" class="ps-secondary">📂 讀取</button>
+      <button id="psLoadBtn" class="ps-secondary">📂 讀取單筆</button>
+      <button id="psLoadAllBtn" class="ps-secondary">📥 讀回整張訂單</button>
     </div>
   </div>
   <input type="file" id="psPhotoInput" accept="image/*" style="display:none;">
@@ -2177,6 +2178,57 @@ document.getElementById('psTestBtn').addEventListener('click', async () => {
   console.log('[手機掛繩連線測試]\n' + rows.join('\n'));
 });
 
+/* 把某帳號在雲端的所有條目一次讀回清單（客人隔天要改圖時用） */
+document.getElementById('psLoadAllBtn').addEventListener('click', async () => {
+  const st = document.getElementById('psExportStatus');
+  const acct = (document.getElementById('psAcct').value.trim()) || prompt('要讀回哪個客人帳號？');
+  if (!acct) return;
+  document.getElementById('psAcct').value = acct;
+
+  const dirty = psOrder.filter(x => (x.hasPhoto || x.name) && !x.saved).length;
+  if (psOrder.some(x => x.hasPhoto || x.name)){
+    if (!confirm('會用雲端的資料換掉目前清單裡的 ' + psOrder.length + ' 條。\n'
+      + (dirty ? '⚠ 其中有 ' + dirty + ' 條還沒上傳，換掉就沒了。\n\n' : '\n') + '確定要讀回嗎？')) return;
+  }
+
+  st.style.color = '#0d9488'; st.textContent = '讀取清單中…';
+  try {
+    const res = await psPost({ func:'psList', account: acct }, 3, null, 15000);
+    if (!res || !res.success){ st.style.color='#dc2626'; st.textContent='讀取失敗：' + ((res&&res.error)||'未知錯誤'); return; }
+    const list = (res.records || []).slice().reverse();      // 舊到新，順序比較接近當初建立的順序
+    if (!list.length){ st.style.color='#dc2626'; st.textContent='這個帳號在雲端沒有任何紀錄'; return; }
+
+    const items = [], failed = [];
+    for (let i = 0; i < list.length; i++){
+      st.textContent = '讀取中… ' + (i+1) + ' / ' + list.length + '　' + list[i].fileName;
+      try {
+        const one = await psPost({ func:'psLoad', id: list[i].id }, 2, null, 20000);
+        if (!one || !one.success || !one.editState) throw new Error('內容讀不到');
+        const it = one.editState;
+        it.account = acct;
+        it.saved = '1';
+        it.fileName = list[i].fileName;
+        it.oldFile = '';
+        it.hasPhoto = !!(it.images && it.images.length);
+        it.thumb = (it.images && it.images[0]) || '';
+        items.push(it);
+      } catch(e){ failed.push(list[i].fileName); }
+    }
+    if (!items.length){ st.style.color='#dc2626'; st.textContent='全部都讀不到，請確認網路後再試'; return; }
+
+    psOrder = items;
+    psCur = 0;
+    await psRestore(psOrder[0]);
+    psRenderList();
+    st.style.color = failed.length ? '#b45309' : '#0d9488';
+    st.textContent = '✅ 已讀回 ' + items.length + ' 條'
+      + (failed.length ? '（' + failed.length + ' 條讀不到：' + failed.join('、') + '）' : '')
+      + '，改完記得逐條再存一次';
+  } catch(e){
+    st.style.color='#dc2626'; st.textContent = '讀取失敗：' + e.message;
+  }
+});
+
 document.getElementById('psLoadBtn').addEventListener('click', async () => {
   const st = document.getElementById('psExportStatus');
   const acct = (document.getElementById('psAcct').value.trim()) || prompt('要讀取哪個客人帳號？');
@@ -2251,7 +2303,7 @@ function psSync(){
 }
 /* 條目被改動過 → ✅ 收回，並記下舊檔名（階段 4 存檔時要清掉雲端的舊檔） */
 function psDirty(){
-  if (psLoading || psCur < 0) return;
+  if (psLoading || psBusy || psCur < 0) return;    // 存檔打包中不算使用者改動
   const it = psOrder[psCur];
   if (!it) return;
   it.touched = Date.now();
@@ -2355,6 +2407,7 @@ async function psGo(i){
   psKeep();
   psCur = i;
   await psRestore(psOrder[i]);
+  psOrder[i].thumb = psThumb();          // 切過去就把縮圖換成真正的吊飾樣子
   psRenderList();
 }
 function psAdd(copy){
