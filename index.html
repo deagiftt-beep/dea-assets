@@ -1620,7 +1620,8 @@ function drawCaption(m, capLines, startY, canvasW){
 /* 畫「目前畫面這一條」到一張獨立 canvas 並回傳；單條與拼版共用 */
 async function psDrawOne(showGuide, withCaption){
   if (fontPromise) await fontPromise;
-    try { await document.fonts.load("16px 'ZhiDai'"); } catch(e){}
+  try { await document.fonts.load("16px 'ZhiDai'"); } catch(e){}
+  const embName = document.getElementById('psEmbName').value.trim();
     const baseImg = await loadAsset('base/base_' + BASE_SLUG[selectedColor] + '.png');
     const lineImg = await loadAsset('charms/' + state.series + '_line.png');
     const strip = buildStrip();
@@ -1631,7 +1632,7 @@ async function psDrawOne(showGuide, withCaption){
     const bl = document.createElement('canvas'); bl.width = 1000; bl.height = 1000;
     const b = bl.getContext('2d');
     b.drawImage(baseImg, 0, 0, 1000, 1000);
-    const runs = measureRuns(b, segmentTextRuns(name));
+    const runs = measureRuns(b, segmentTextRuns(embName));
     const uS = STRAP_GEO.usableStart*PXMM, uE = STRAP_GEO.usableEnd*PXMM, cy = STRAP_GEO.centerY*PXMM;
     let startX = (uS+uE)/2 - runs.totalWidth/2;
     if (startX < uS) startX = uS;
