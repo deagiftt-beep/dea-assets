@@ -1768,6 +1768,12 @@ let psSheets = [], psSheetAt = 0;
 async function psMakeSheets(){
   const st = document.getElementById('psMockStatus');
   if (!psOrder.length){ st.style.color='#dc2626'; st.textContent='清單是空的'; return; }
+  const lazyN = psOrder.map((it,i) => it.lazy ? (i+1) : 0).filter(Boolean);
+  if (lazyN.length){
+    st.style.color='#dc2626';
+    st.textContent = '第 ' + lazyN.join('、') + ' 條還沒下載照片（點一下那條就會下載），或改用「讀取單筆」只處理要改的那條';
+    return;
+  }
   const bad = psOrder.map((it,i) => (!it.hasPhoto || !it.name) ? (i+1) : 0).filter(Boolean);
   if (bad.length){
     st.style.color='#dc2626';
@@ -2178,6 +2184,19 @@ document.getElementById('psTestBtn').addEventListener('click', async () => {
   console.log('[手機掛繩連線測試]\n' + rows.join('\n'));
 });
 
+/* 檔名格式：帳號_配色_小隊+姓名[_流水號].png */
+function psParseFileName(fn){
+  const base = String(fn || '').replace(/\.png$/i, '');
+  const out = { color: selectedColor, series: state.series, name: base };
+  const m = base.match(/^(.+?)_([^_]+)_([A-F])\+(.+?)(?:_(\d+))?$/);
+  if (m){
+    out.color = psMatchColor(m[2]) || m[2];
+    out.series = m[3];
+    out.name = m[4];
+  }
+  return out;
+}
+
 /* 把某帳號在雲端的所有條目一次讀回清單（客人隔天要改圖時用） */
 document.getElementById('psLoadAllBtn').addEventListener('click', async () => {
   const st = document.getElementById('psExportStatus');
@@ -2198,32 +2217,19 @@ document.getElementById('psLoadAllBtn').addEventListener('click', async () => {
     const list = (res.records || []).slice().reverse();      // 舊到新，順序比較接近當初建立的順序
     if (!list.length){ st.style.color='#dc2626'; st.textContent='這個帳號在雲端沒有任何紀錄'; return; }
 
-    const items = [], failed = [];
-    for (let i = 0; i < list.length; i++){
-      st.textContent = '讀取中… ' + (i+1) + ' / ' + list.length + '　' + list[i].fileName;
-      try {
-        const one = await psPost({ func:'psLoad', id: list[i].id }, 2, null, 20000);
-        if (!one || !one.success || !one.editState) throw new Error('內容讀不到');
-        const it = one.editState;
-        it.account = acct;
-        it.saved = '1';
-        it.fileName = list[i].fileName;
-        it.oldFile = '';
-        it.hasPhoto = !!(it.images && it.images.length);
-        it.thumb = (it.images && it.images[0]) || '';
-        items.push(it);
-      } catch(e){ failed.push(list[i].fileName); }
-    }
-    if (!items.length){ st.style.color='#dc2626'; st.textContent='全部都讀不到，請確認網路後再試'; return; }
-
+    // 只建骨架（檔名就有配色/小隊/姓名），照片等點進去才下載 —— 一次 psList 就搞定，不會逐筆失敗
+    const items = list.map(rec => {
+      const p = psParseFileName(rec.fileName);
+      return { v:1, series:p.series, color:p.color, name:p.name, account:acct,
+               images:[], thumb:'', hasPhoto:true, saved:'1',
+               fileName:rec.fileName, oldFile:'', cloudId:rec.id, lazy:1,
+               charms:[0,1,2].map(() => ({ img:0, zoom:106, dx:0, dy:0, rot:0, bright:100 })) };
+    });
     psOrder = items;
-    psCur = 0;
-    await psRestore(psOrder[0]);
+    psCur = -1;
     psRenderList();
-    st.style.color = failed.length ? '#b45309' : '#0d9488';
-    st.textContent = '✅ 已讀回 ' + items.length + ' 條'
-      + (failed.length ? '（' + failed.length + ' 條讀不到：' + failed.join('、') + '）' : '')
-      + '，改完記得逐條再存一次';
+    st.style.color = '#0d9488';
+    st.textContent = '✅ 已讀回 ' + items.length + ' 條，點你要改的那一條才會下載照片';
   } catch(e){
     st.style.color='#dc2626'; st.textContent = '讀取失敗：' + e.message;
   }
@@ -2249,8 +2255,17 @@ document.getElementById('psLoadBtn').addEventListener('click', async () => {
     }
     const one = await psPost({ func:'psLoad', id: list[pick].id });
     if (!one || !one.success){ st.style.color='#dc2626'; st.textContent='讀取失敗：' + ((one&&one.error)||'未知錯誤'); return; }
-    await psRestore(one.editState);
-    st.style.color='#0d9488'; st.textContent='✅ 已載入：' + list[pick].fileName + '（改完記得再按一次儲存登記，會覆蓋同一筆）';
+    const it = one.editState;
+    it.account = acct; it.saved = '1'; it.fileName = list[pick].fileName;
+    it.oldFile = ''; it.lazy = 0; it.hasPhoto = true;
+    psKeep();
+    const same = psOrder.findIndex(x => x.fileName === it.fileName);
+    if (same >= 0){ psOrder[same] = it; psCur = same; }        // 已在清單就取代，不會變兩條
+    else { psOrder.push(it); psCur = psOrder.length - 1; }
+    await psRestore(it);
+    psOrder[psCur].thumb = psThumb();
+    psRenderList();
+    st.style.color='#0d9488'; st.textContent='✅ 已載入第 ' + (psCur+1) + ' 條：' + list[pick].fileName + '（改完按儲存登記會覆蓋同一筆）';
   } catch(e){
     st.style.color='#dc2626'; st.textContent = '讀取失敗：' + e.message;
   }
@@ -2385,10 +2400,11 @@ function psRenderList(){
     row.className = 'ps-item' + (i === psCur ? ' ps-cur-item' : '');
     row.innerHTML =
       '<span class="ps-it-no">' + (i+1) + '</span>' +
-      '<img src="' + (it.thumb || (it.images && it.images[0]) || PS_BLANK_IMG) + '">' +
+      '<img src="' + (it.thumb || (it.images && it.images[0]) || PS_BLANK_IMG) + '"' +
+        (it.lazy ? ' style="opacity:.35"' : '') + '>' +
       '<span class="ps-it-txt">' + (it.name || '（未填姓名）') + psDupTag(i) + '　' + it.color + '・' +
         it.series + ' ' + (SERIES_NAME[it.series] || '') +
-        '<small>' + (it.hasPhoto ? '已放照片' : '⚠ 還沒放照片') + '</small></span>' +
+        '<small>' + (it.lazy ? '☁ 雲端（點一下下載）' : (it.hasPhoto ? '已放照片' : '⚠ 還沒放照片')) + '</small></span>' +
       '<span class="ps-it-st" title="' + (it.err || '') + '">' +
         (it.busy ? '⏳' : (it.err ? '⚠' : (it.saved ? '✅' : ''))) + '</span>' +
       '<button class="ps-it-del" title="刪除這條">✕</button>';
@@ -2405,11 +2421,39 @@ function psRenderList(){
 async function psGo(i){
   if (i === psCur || i < 0 || i >= psOrder.length) return;
   psKeep();
+  if (psOrder[i].lazy){ if (!(await psFetchOne(i))) return; }   // 雲端骨架 → 下載真正的內容
   psCur = i;
   await psRestore(psOrder[i]);
   psOrder[i].thumb = psThumb();          // 切過去就把縮圖換成真正的吊飾樣子
   psRenderList();
 }
+
+/* 下載單一條的完整內容（含照片），成功後這條就跟本機做的一樣可以改 */
+async function psFetchOne(i){
+  const it = psOrder[i], st = document.getElementById('psExportStatus');
+  st.style.color = '#0d9488';
+  st.textContent = '下載第 ' + (i+1) + ' 條的照片…（' + it.fileName + '）';
+  it.busy = 1; psRenderList();
+  try {
+    const one = await psPost({ func:'psLoad', id: it.cloudId }, 3, null, 25000);
+    if (!one || !one.success || !one.editState) throw new Error('內容讀不到');
+    const got = one.editState;
+    got.account = it.account; got.saved = '1'; got.fileName = it.fileName;
+    got.oldFile = ''; got.cloudId = it.cloudId; got.lazy = 0; got.busy = 0; got.err = '';
+    got.hasPhoto = !!(got.images && got.images.length);
+    got.thumb = (got.images && got.images[0]) || '';
+    psOrder[i] = got;
+    st.textContent = '';
+    return true;
+  } catch(e){
+    it.busy = 0; it.err = e.message;
+    st.style.color = '#dc2626';
+    st.textContent = '第 ' + (i+1) + ' 條下載失敗：' + e.message + '（再點一次那一條可重試）';
+    psRenderList();
+    return false;
+  }
+}
+
 function psAdd(copy){
   psKeep();
   let it;
