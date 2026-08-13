@@ -1617,16 +1617,9 @@ function drawCaption(m, capLines, startY, canvasW){
   m.restore();
 }
 
-async function genMock(){
-  const st = document.getElementById('psMockStatus');
-  const missing = [0,1,2].filter(i => !state.charms[i].photo);
-  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return; }
-  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片:' + missing.map(i=>POS_NAME[i]).join('、'); return; }
-  const name = document.getElementById('psEmbName').value.trim();
-  if (!name){ st.style.color='#dc2626'; st.textContent='請先填刺繡姓名'; return; }
-  st.style.color = '#0d9488'; st.textContent = '產生中…';
-  try {
-    if (fontPromise) await fontPromise;
+/* 畫「目前畫面這一條」到一張獨立 canvas 並回傳；單條與拼版共用 */
+async function psDrawOne(showGuide, withCaption){
+  if (fontPromise) await fontPromise;
     try { await document.fonts.load("16px 'ZhiDai'"); } catch(e){}
     const baseImg = await loadAsset('base/base_' + BASE_SLUG[selectedColor] + '.png');
     const lineImg = await loadAsset('charms/' + state.series + '_line.png');
@@ -1652,7 +1645,7 @@ async function genMock(){
       if (r.text.trim()) b.fillText(r.text, curX, cy + r.shiftPx);
       curX += r.width;
     }
-    if (document.getElementById('psGuideToggle').checked){
+    if (showGuide){
       b.save(); b.setLineDash([10,10]); b.lineWidth = 3; b.strokeStyle = 'rgba(43,164,247,0.95)';
       const dh = 105;
       b.beginPath();
@@ -1682,12 +1675,12 @@ async function genMock(){
     const capStartY = Math.round(cy2 + 70);
 
     // 主畫布
-    const cvM = document.getElementById('psMockSheet');
+    const cvM = document.createElement('canvas');
     const mctx0 = cvM.getContext('2d');
     mctx0.font = CAP_FONT;
-    const capLines = wrapCaption(mctx0, captionText, MOCK.W - MOCK.margin*2);
+    const capLines = withCaption ? wrapCaption(mctx0, captionText, MOCK.W - MOCK.margin*2) : [];
     cvM.width = MOCK.W;
-    cvM.height = capStartY + captionHeight(capLines) + MOCK.bottom;
+    cvM.height = capStartY + captionHeight(capLines) + (withCaption ? MOCK.bottom : 24);
     const m = cvM.getContext('2d');
     m.fillStyle = '#fff'; m.fillRect(0, 0, cvM.width, cvM.height);
     // 織帶整組轉 45°(以金屬環附近為軸,偏右擺放讓視覺平衡)
@@ -1705,8 +1698,25 @@ async function genMock(){
     for (const p of places){
       m.drawImage(strip, p.bb.x0, p.bb.y0, p.bb.x1-p.bb.x0+1, p.bb.y1-p.bb.y0+1, chainCx - p.w/2, p.y, p.w, p.h);
     }
-    if (captionText) drawCaption(m, capLines, capStartY, cvM.width);
+    if (withCaption && captionText) drawCaption(m, capLines, capStartY, cvM.width);
+    return cvM;
+}
 
+/* 單條：維持原本的行為（畫到 psMockSheet、顯示在右側） */
+async function genMock(){
+  const st = document.getElementById('psMockStatus');
+  const missing = [0,1,2].filter(i => !state.charms[i].photo);
+  if (!state.overlay){ st.style.color='#dc2626'; st.textContent='素材還沒載入完成'; return false; }
+  if (missing.length){ st.style.color='#dc2626'; st.textContent='還沒放照片:' + missing.map(i=>POS_NAME[i]).join('、'); return false; }
+  if (!document.getElementById('psEmbName').value.trim()){
+    st.style.color='#dc2626'; st.textContent='請先填刺繡姓名'; return false;
+  }
+  st.style.color = '#0d9488'; st.textContent = '產生中…';
+  try {
+    const one = await psDrawOne(document.getElementById('psGuideToggle').checked, true);
+    const cvM = document.getElementById('psMockSheet');
+    cvM.width = one.width; cvM.height = one.height;
+    cvM.getContext('2d').drawImage(one, 0, 0);
     const img = document.getElementById('psMockImg');
     img.src = cvM.toDataURL('image/jpeg', 0.92);
     img.style.display = 'block';
