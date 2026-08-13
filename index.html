@@ -1195,6 +1195,8 @@ function seriesBase(photo){
 function resetCharm(i, keepPhoto){
   const c = state.charms[i];
   if (!keepPhoto) c.photo = null;
+  const cvx = document.getElementById('psEd'+i);
+  if (cvx) cvx.style.cursor = c.photo ? 'grab' : 'pointer';
   if (c.photo){
     c.base = seriesBase(c.photo) * (SIZE_K[state.series] ? SIZE_K[state.series][i] : 1);
     c.scale = c.base * 1.06;
@@ -1271,6 +1273,7 @@ function renderEditor(i){
   const ctx = cv.getContext('2d');
   ctx.clearRect(0,0,EDITOR_PX,EDITOR_PX);
   checker(ctx, EDITOR_PX, EDITOR_PX, 16);
+  cv.style.cursor = state.charms[i].photo ? 'grab' : 'pointer';
   if (!state.overlay) return;
   const { sx, sy, side } = viewRegion(i);
   const k = EDITOR_PX / side;
@@ -1283,6 +1286,19 @@ function renderEditor(i){
     ctx.drawImage(off, 0, 0);
   }
   ctx.drawImage(state.overlay, sx, sy, side, side, 0, 0, EDITOR_PX, EDITOR_PX);
+  if (!state.charms[i].photo){                       // 空的洞給一個「點我放照片」提示
+    ctx.save();
+    ctx.font = "600 15px system-ui, -apple-system, 'PingFang TC','Microsoft JhengHei'";
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    const tw = ctx.measureText('點這裡放照片').width + 22;
+    ctx.fillRect(EDITOR_PX/2 - tw/2, EDITOR_PX/2 - 15, tw, 30);
+    ctx.strokeStyle = 'rgba(242,144,39,.9)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(EDITOR_PX/2 - tw/2, EDITOR_PX/2 - 15, tw, 30);
+    ctx.fillStyle = '#b45309';
+    ctx.fillText('點這裡放照片', EDITOR_PX/2, EDITOR_PX/2);
+    ctx.restore();
+  }
 }
 function renderAllEditors(){ for (let i=0;i<3;i++) renderEditor(i); }
 
@@ -1336,6 +1352,10 @@ for (let i=0;i<3;i++){
   const cv = document.getElementById('psEd'+i);
   const pointers = new Map();
   let lastDist = 0;
+  cv.addEventListener('click', () => {
+    if (!state.charms[i].photo) document.getElementById('psFile'+i).click();
+  });
+  cv.style.cursor = 'pointer';
   cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
@@ -2389,6 +2409,26 @@ document.getElementById('psDupItem').addEventListener('click', () => psAdd(true)
 document.getElementById('psEmbName').addEventListener('input', psSync);
 /* ---- 入口一：貼名單（一行一條，格式 配色+小隊+姓名） ---- */
 const PS_COLOR_KEYS = STRAP_COLORS.map(x => x[0]);
+/* 客人和客服打的簡稱 → 正式配色名。含糊的（綠、黃）指到最常訂的那一款 */
+const PS_COLOR_ALIAS = {
+  '粉':'粉色','粉紅':'粉色','粉紅色':'粉色','櫻花粉':'粉色',
+  '藍':'藍色','深藍':'藍色','水藍':'藍色',
+  '灰':'灰色','石墨灰':'灰色',
+  '抹茶':'抹茶綠','抹茶色':'抹茶綠','墨綠':'抹茶綠',
+  '薄荷':'薄荷綠','薄荷色':'薄荷綠','蒂芬妮':'薄荷綠','湖水綠':'薄荷綠',
+  '綠':'抹茶綠','綠色':'抹茶綠',
+  '卡其':'卡其色','棕':'卡其色','棕色':'卡其色','咖啡':'卡其色','咖啡色':'卡其色','奶茶':'卡其色',
+  '鵝黃':'鵝黃色','黃':'鵝黃色','黃色':'鵝黃色','奶油黃':'鵝黃色','淺黃':'鵝黃色',
+  '白':'白色','純白':'白色',
+  '原':'原色','米':'原色','米色':'原色','米白':'原色','奶油白':'原色','自然色':'原色'
+};
+function psMatchColor(t){
+  if (!t) return null;
+  if (PS_COLOR_KEYS.indexOf(t) >= 0) return t;              // 完全相符
+  if (PS_COLOR_ALIAS[t]) return PS_COLOR_ALIAS[t];          // 別名
+  const hit = PS_COLOR_KEYS.find(k => k.indexOf(t) === 0 || t.indexOf(k) === 0);
+  return hit || null;                                        // 開頭互相包含（薄荷綠色 → 薄荷綠）
+}
 function psParseLine(raw){
   const t = String(raw).replace(/^\s*\d+\s*[.、:：)]\s*/, '').trim();   // 去掉「1.」「3)」等編號
   if (!t) return null;
@@ -2397,13 +2437,14 @@ function psParseLine(raw){
   const rest = [];
   parts.forEach(p => {
     if (!out.color){
-      const c = PS_COLOR_KEYS.find(k => k === p) || PS_COLOR_KEYS.find(k => p && k.indexOf(p) === 0);
+      const c = psMatchColor(p);
       if (c){ out.color = c; return; }
     }
     if (!out.series && /^[a-fA-F]$/.test(p)){ out.series = p.toUpperCase(); return; }
     rest.push(p);
   });
   out.name = rest.join(' ').trim();
+  out.warn = rest.some(w => /色$|綠$|黃$|藍$|粉$|灰$/.test(w));   // 名字裡混進疑似顏色的字
   return out;
 }
 const psPasteBox = document.createElement('div');
@@ -2423,7 +2464,8 @@ function psPastePreview(){
   const rows = document.getElementById('psPasteText').value.split(/\r?\n/).map(psParseLine).filter(x => x && x.name);
   document.getElementById('psPastePrev').innerHTML = rows.length
     ? '<b style="color:#0d9488;">將建立 ' + rows.length + ' 條：</b><br>' +
-      rows.map((r,i) => (i+1) + '. ' + (r.color || selectedColor) + '・' + (r.series || state.series) + '　' + r.name).join('<br>')
+      rows.map((r,i) => (i+1) + '. ' + (r.color || selectedColor) + '・' + (r.series || state.series) + '　' + r.name
+        + (r.warn ? ' <b style="color:#dc2626;">← 這個顏色沒認出來，被當成名字了</b>' : '')).join('<br>')
     : '<span style="color:#b45309;">還沒讀到任何一條</span>';
 }
 document.getElementById('psPasteItem').addEventListener('click', () => {
