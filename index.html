@@ -185,6 +185,7 @@ const iconCache = new Map();
 
 /* ★ 登記系統 API 網址（寫死，部署到 GitHub 後免設定）*/
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby9AZR8omDhr08pY_HVevTKCxJNSo4nY-SIND5zjibmS_3oLZgsRKIgKs9u3X0AXymbXg/exec';
+const DEFAULT_GAS_KEY = 'dea-jsonp-BWnqKIH4pWZF';   /* 2026-10-23 JSONP 金鑰（要和 Code.gs 的 JSONP_KEY 一樣） */
 
 async function loadCloudFont(baseUrl) {
   const urls = [
@@ -821,7 +822,7 @@ function jsonpCall(url, func, params, onSuccess, onError) {
   }
   window[cbName] = function(data) { cleanup(); onSuccess(data); };
   var q = url + (url.indexOf('?') > -1 ? '&' : '?') +
-          'callback=' + cbName + '&func=' + encodeURIComponent(func) +
+          'callback=' + cbName + '&func=' + encodeURIComponent(func) + '&key=' + encodeURIComponent(DEFAULT_GAS_KEY) +
           '&params=' + encodeURIComponent(JSON.stringify(params));
   script = document.createElement('script');
   script.src = q;
