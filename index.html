@@ -66,7 +66,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.2 含登記功能・紅字備註・指定出貨日）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.3 含登記功能・紅字備註・指定出貨日）</h1>
 </header>
 
 <div class="app">
@@ -95,12 +95,13 @@
       <input type="text" id="custAccount" placeholder="例如 mku170314">
       <label for="redNote" style="margin-top:10px">給師傅的紅字備註（選填）</label>
       <input type="text" id="redNote" maxlength="200" placeholder="例如：第一條文字高度縮小3mm、週三寄不能提早">
-      <label for="shipSpec" style="margin-top:10px">指定出貨日（選填，沒選＝照規則自動算）</label>
+      <label for="shipSpec" style="margin-top:10px">指定出貨日（選填；沒選＝沿用這位客人之前指定的，沒指定過就照規則算）</label>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="date" id="shipSpec" style="padding:8px 10px; border:1px solid #eaeaea; border-radius:10px; font-size:14px; background:#fff;">
         <button type="button" id="shipSpecClear" class="secondary" style="padding:6px 12px; font-size:12px;">清除</button>
         <span id="shipSpecHint" class="small" style="font-weight:700;"></span>
       </div>
+      <label style="display:flex; align-items:center; gap:6px; margin:8px 0 0; font-weight:400; color:#4b5563; cursor:pointer;"><input type="checkbox" id="shipSpecCancel" style="margin:0;"> 取消這位客人原本指定的出貨日（改回照規則算）</label>
       <div class="save-row">
         <button id="saveRecordBtn">🧵 儲存模擬圖資料</button>
         <span id="saveRecordStatus"></span>
@@ -109,7 +110,7 @@
         會把「上方處理框的內容」當作製作內容，連同帳號存到刺繡訂單系統。<br>
         之後比對工具就能自動帶入，師傅看到的就是這份。<br>
         紅字備註不要寫進處理框：填在上面那格，登記到刺繡訂單時會自動加在最後一行並改成紅色（刺繡排程、打版清單都當提示，不會當成要繡的內容）。空白＝沒有備註，會清掉這位客人之前存的紅字備註。<br>
-        指定出貨日：客人要指定哪天寄出才選。登記到刺繡訂單時出貨日（E 欄）就用這天，蝦皮機器人回「下單說明」也會講這天；沒選＝照規則算。每次儲存完這格會自動清空，下一位客人要重選；同一位客人重存時沒選＝取消指定。
+        指定出貨日：客人要指定哪天寄出才選。登記到刺繡訂單時出貨日（E 欄）就用這天，蝦皮機器人回「下單說明」也會講這天。每次儲存完這格會自動清空（下一位客人不會沿用）；同一位客人之後重存：沒選＝沿用之前指定的、選了新日期＝換成新日期、勾「取消…」＝改回照規則算。
       </div>
     </div>
     <!-- ===== 新增結束 ===== -->
@@ -778,7 +779,8 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
   var account = document.getElementById('custAccount').value.trim();
   var content = document.getElementById('orders').value.trim();  // 處理框當下的內容
   var redNote = (document.getElementById('redNote').value || '').replace(/[\r\n]+/g, ' ').trim();   // 2026-11-01 給師傅的紅字備註（空白＝沒有）
-  var shipSpec = document.getElementById('shipSpec').value || '';   // 2026-11-01 指定出貨日 yyyy-MM-dd（空白＝照規則自動算）
+  var shipSpec = document.getElementById('shipSpec').value || '';   // 2026-11-01 指定出貨日 yyyy-MM-dd（空白＝沿用這位客人之前指定的）
+  var shipCancel = !shipSpec && document.getElementById('shipSpecCancel').checked;   // 2026-11-01 勾了「取消…」＝清掉原本指定的、改回照規則算
   var statusEl = document.getElementById('saveRecordStatus');
   var btn = this;
 
@@ -809,7 +811,7 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
   statusEl.style.color = '#0d9488';
   statusEl.textContent = '儲存中...';
 
-  jsonpCall(url, 'saveMockupRecord', [{ account: account, content: content, redNote: redNote, shipDate: shipSpec }], function(res) {
+  jsonpCall(url, 'saveMockupRecord', [{ account: account, content: content, redNote: redNote, shipDate: shipSpec, shipCancel: shipCancel }], function(res) {
     btn.disabled = false;
     if (res && res.success) {
       statusEl.style.color = '#0d9488';
@@ -817,7 +819,7 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
       statusEl.style.color = warn ? '#b45309' : '#0d9488';
       statusEl.textContent = (warn ? '' : '✅ ') + res.msg;
       redNoteOwner = document.getElementById('redNote').value ? account : '';   // 2026-11-01 這格紅字備註已存給這位客人：之後帳號改成別人就自動清空
-      document.getElementById('shipSpec').value = ''; shipSpecShowHint();   // 2026-11-01 指定出貨日每次存完就清空，下一位客人不會沿用
+      document.getElementById('shipSpec').value = ''; document.getElementById('shipSpecCancel').checked = false; shipSpecShowHint();   // 2026-11-01 指定出貨日每次存完就清空，下一位客人不會沿用
       var shownMsg = statusEl.textContent;
       setTimeout(function(){ if (statusEl.textContent === shownMsg) statusEl.textContent = ''; }, warn ? 20000 : 4000);
     } else {
@@ -844,11 +846,12 @@ document.getElementById('custAccount').addEventListener('input', function() {
   }
 });
 
-/* 2026-11-01 指定出貨日：不能選已經過的日子；選了顯示星期幾（週末紅字提醒）；「清除」＝改回照規則算 */
+/* 2026-11-01 指定出貨日：不能選已經過的日子；選了顯示星期幾（週末紅字提醒）；「清除」＝這次不改（沿用之前指定的）；勾「取消…」＝改回照規則算 */
 function shipSpecToday() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 function shipSpecShowHint() {
-  var v = document.getElementById('shipSpec').value, hint = document.getElementById('shipSpecHint');
-  if (!v) { hint.textContent = ''; return; }
+  var v = document.getElementById('shipSpec').value, hint = document.getElementById('shipSpecHint'), cx = document.getElementById('shipSpecCancel');
+  if (!v) { hint.style.color = '#dc2626'; hint.textContent = cx.checked ? '儲存時會取消這位客人原本指定的出貨日' : ''; return; }
+  cx.checked = false;   // 選了新日期 → 不是取消
   var p = v.split('-'), wd = new Date(+p[0], +p[1] - 1, +p[2]).getDay(), past = v < shipSpecToday(), wkend = (wd === 0 || wd === 6);
   hint.style.color = (past || wkend) ? '#dc2626' : '#b45309';
   hint.textContent = '週' + '日一二三四五六'.charAt(wd) + (past ? '・已經過了' : (wkend ? '・週末，確定嗎？' : '')) + '・登記時出貨日用這天';
@@ -857,6 +860,7 @@ document.getElementById('shipSpec').setAttribute('min', shipSpecToday());
 document.getElementById('shipSpec').addEventListener('change', shipSpecShowHint);
 document.getElementById('shipSpec').addEventListener('input', shipSpecShowHint);
 document.getElementById('shipSpecClear').addEventListener('click', function() { document.getElementById('shipSpec').value = ''; shipSpecShowHint(); });
+document.getElementById('shipSpecCancel').addEventListener('change', function() { if (this.checked) document.getElementById('shipSpec').value = ''; shipSpecShowHint(); });
 
 /* JSONP 呼叫工具 */
 function jsonpCall(url, func, params, onSuccess, onError) {
