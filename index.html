@@ -66,7 +66,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.0 含登記功能）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.1 含登記功能・紅字備註）</h1>
 </header>
 
 <div class="app">
@@ -93,13 +93,16 @@
     <div class="save-box">
       <label>客人蝦皮帳號（登記用）</label>
       <input type="text" id="custAccount" placeholder="例如 mku170314">
+      <label for="redNote" style="margin-top:10px">給師傅的紅字備註（選填）</label>
+      <input type="text" id="redNote" maxlength="200" placeholder="例如：第一條文字高度縮小3mm、週三寄不能提早">
       <div class="save-row">
         <button id="saveRecordBtn">🧵 儲存模擬圖資料</button>
         <span id="saveRecordStatus"></span>
       </div>
       <div class="muted" style="margin-top:8px; line-height:1.5;">
         會把「上方處理框的內容」當作製作內容，連同帳號存到刺繡訂單系統。<br>
-        之後比對工具就能自動帶入，師傅看到的就是這份。
+        之後比對工具就能自動帶入，師傅看到的就是這份。<br>
+        紅字備註不要寫進處理框：填在上面那格，登記到刺繡訂單時會自動加在最後一行並改成紅色（刺繡排程、打版清單都當提示，不會當成要繡的內容）。空白＝沒有備註，會清掉這位客人之前存的紅字備註。
       </div>
     </div>
     <!-- ===== 新增結束 ===== -->
@@ -767,6 +770,7 @@ document.getElementById('orders').value="黑+Maico+1\n黃+金+小麥+20\n綠色+
 document.getElementById('saveRecordBtn').addEventListener('click', function() {
   var account = document.getElementById('custAccount').value.trim();
   var content = document.getElementById('orders').value.trim();  // 處理框當下的內容
+  var redNote = (document.getElementById('redNote').value || '').replace(/[\r\n]+/g, ' ').trim();   // 2026-11-01 給師傅的紅字備註（空白＝沒有）
   var statusEl = document.getElementById('saveRecordStatus');
   var btn = this;
 
@@ -792,11 +796,12 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
   statusEl.style.color = '#0d9488';
   statusEl.textContent = '儲存中...';
 
-  jsonpCall(url, 'saveMockupRecord', [{ account: account, content: content }], function(res) {
+  jsonpCall(url, 'saveMockupRecord', [{ account: account, content: content, redNote: redNote }], function(res) {
     btn.disabled = false;
     if (res && res.success) {
       statusEl.style.color = '#0d9488';
       statusEl.textContent = '✅ ' + res.msg;
+      redNoteOwner = document.getElementById('redNote').value ? account : '';   // 2026-11-01 這格紅字備註已存給這位客人：之後帳號改成別人就自動清空
       // 成功後清空帳號欄，避免重複存
       setTimeout(function(){ statusEl.textContent = ''; }, 4000);
     } else {
@@ -808,6 +813,19 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
     statusEl.style.color = '#dc2626';
     statusEl.textContent = '連線失敗，請確認 API 網址';
   });
+});
+
+/* 2026-11-01 紅字備註：存好之後帳號改成別的客人就清空，免得上一位客人的備註被存到下一位（剛打好、還沒存的備註不會被清） */
+var redNoteOwner = '';
+document.getElementById('redNote').addEventListener('input', function() { redNoteOwner = ''; });
+document.getElementById('custAccount').addEventListener('input', function() {
+  var noteEl = document.getElementById('redNote'), acc = this.value.trim();
+  if (noteEl.value && redNoteOwner && acc !== redNoteOwner) {
+    noteEl.value = ''; redNoteOwner = '';
+    var st = document.getElementById('saveRecordStatus');
+    st.style.color = '#b45309'; st.textContent = '換客人了，紅字備註已清空';
+    setTimeout(function(){ if (st.textContent === '換客人了，紅字備註已清空') st.textContent = ''; }, 3000);
+  }
 });
 
 /* JSONP 呼叫工具 */
