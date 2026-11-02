@@ -66,7 +66,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.3 含登記功能・紅字備註・指定出貨日）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.4 含登記功能・紅字備註・指定出貨日）</h1>
 </header>
 
 <div class="app">
@@ -196,7 +196,58 @@ const iconCache = new Map();
 
 /* ★ 登記系統 API 網址（寫死，部署到 GitHub 後免設定）*/
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby9AZR8omDhr08pY_HVevTKCxJNSo4nY-SIND5zjibmS_3oLZgsRKIgKs9u3X0AXymbXg/exec';
-const DEFAULT_GAS_KEY = 'dea-jsonp-BWnqKIH4pWZF';   /* 2026-10-23 JSONP 金鑰（要和 Code.gs 的 JSONP_KEY 一樣） */
+/* 2026-11-02 登記密碼（JSONP 通行碼）不再寫在網頁裡——這個 repo 是公開的，誰都看得到原始碼。
+   每台電腦第一次打開輸入一次，存在這台電腦的瀏覽器；只有「儲存模擬圖資料」要用，產圖不用（RPA 產圖也不受影響）。 */
+function gasKey() { try { return localStorage.getItem('dea_gas_key') || window.__gasKey || ''; } catch (e) { return window.__gasKey || ''; } }
+function setGasKey(k) { window.__gasKey = k || ''; try { if (k) localStorage.setItem('dea_gas_key', k); else localStorage.removeItem('dea_gas_key'); } catch (e) {} }
+function keyAsk(msg) {
+  var ov = document.getElementById('keyOv');
+  if (!ov) {
+    var css = document.createElement('style');
+    css.textContent = '#keyOv{position:fixed;inset:0;z-index:99999;background:rgba(40,36,34,.45);display:none;align-items:center;justify-content:center}' +
+      '#keyOv .kb{background:#fff;border-radius:18px;padding:22px 22px 16px;width:min(330px,calc(100vw - 32px));box-shadow:0 16px 40px rgba(0,0,0,.25);font-family:inherit}' +
+      '#keyOv .kt{font-size:17px;font-weight:800;color:#333;margin-bottom:6px}#keyOv .km{font-size:12.5px;color:#777;line-height:1.55;margin-bottom:12px}' +
+      '#keyOv input{width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #e5e5e5;border-radius:12px;font-size:15px;outline:none}' +
+      '#keyOv input:focus{border-color:#F29027;box-shadow:0 0 0 3px rgba(242,144,39,.18)}' +
+      '#keyOv button{width:100%;margin-top:10px;padding:10px;border:0;border-radius:999px;font-size:15px;font-weight:800;cursor:pointer;background:#F29027;color:#fff}' +
+      '#keyOv button.kl{background:transparent;color:#999;font-weight:600;font-size:13px;margin-top:4px}#keyOv button:disabled{opacity:.6}' +
+      '#keyOv .ke{min-height:18px;font-size:12.5px;margin-top:6px;color:#dc2626;text-align:center}';
+    document.head.appendChild(css);
+    ov = document.createElement('div'); ov.id = 'keyOv';
+    ov.innerHTML = '<div class="kb"><div class="kt">輸入登記密碼</div><div class="km" id="keyMsg"></div>' +
+      '<input id="keyIn" type="password" autocomplete="off" placeholder="登記密碼">' +
+      '<button id="keyGo" type="button">確定</button><button id="keyLater" type="button" class="kl">先不用（只產圖）</button><div class="ke" id="keyErr"></div></div>';
+    document.body.appendChild(ov);
+    document.getElementById('keyGo').onclick = keyTry;
+    document.getElementById('keyIn').onkeydown = function (e) { if (e.key === 'Enter') keyTry(); };
+    document.getElementById('keyLater').onclick = function () { ov.style.display = 'none'; };
+  }
+  document.getElementById('keyMsg').textContent = msg || '第一次在這台電腦使用，輸入一次就會記住。只有「儲存模擬圖資料」需要，產圖不用。';
+  document.getElementById('keyErr').textContent = '';
+  ov.style.display = 'flex';
+  setTimeout(function () { var i = document.getElementById('keyIn'); if (i) i.focus(); }, 50);
+}
+function keyTry() {
+  var k = document.getElementById('keyIn').value.trim(), err = document.getElementById('keyErr'), go = document.getElementById('keyGo');
+  if (!k) { err.style.color = '#dc2626'; err.textContent = '請輸入密碼'; return; }
+  go.disabled = true; err.style.color = '#0d9488'; err.textContent = '確認中…';
+  var url = document.getElementById('gasUrl').value.trim() || DEFAULT_GAS_URL, old = gasKey();
+  setGasKey(k);
+  jsonpCall(url, 'authPing', [], function (res) {
+    go.disabled = false;
+    if (res && (res.ok || /不允許的函式/.test(res.error || ''))) {   // 不允許的函式＝密碼對、只是報價系統還沒更新到有 authPing
+      document.getElementById('keyOv').style.display = 'none'; document.getElementById('keyIn').value = '';
+      var st = document.getElementById('saveRecordStatus');
+      if (st) { st.style.color = '#0d9488'; st.textContent = '✅ 登記密碼已記住'; setTimeout(function () { if (st.textContent === '✅ 登記密碼已記住') st.textContent = ''; }, 4000); }
+    } else {
+      setGasKey(old); err.style.color = '#dc2626';
+      err.textContent = (res && res.error === '金鑰錯誤') ? '密碼不對，請再確認一次' : ('沒有確認成功：' + ((res && res.error) || '未知錯誤'));
+    }
+  }, function () { go.disabled = false; setGasKey(old); err.style.color = '#dc2626'; err.textContent = '連不上登記系統，請稍後再試'; });
+}
+if (!gasKey() && !navigator.webdriver) {   // 第一次打開就問（RPA 的自動產圖 navigator.webdriver 是 true，不跳）
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { keyAsk(''); }); else keyAsk('');
+}
 
 async function loadCloudFont(baseUrl) {
   const urls = [
@@ -807,6 +858,13 @@ document.getElementById('saveRecordBtn').addEventListener('click', function() {
     return;
   }
 
+  if (!gasKey()) {   // 2026-11-02 還沒輸入登記密碼
+    statusEl.style.color = '#dc2626';
+    statusEl.textContent = '請先輸入登記密碼（每台電腦只要一次）';
+    keyAsk('要先輸入登記密碼才能儲存。輸入一次就會記住。');
+    return;
+  }
+
   btn.disabled = true;
   statusEl.style.color = '#0d9488';
   statusEl.textContent = '儲存中...';
@@ -872,9 +930,13 @@ function jsonpCall(url, func, params, onSuccess, onError) {
     delete window[cbName];
     if (script && script.parentNode) script.parentNode.removeChild(script);
   }
-  window[cbName] = function(data) { cleanup(); onSuccess(data); };
+  window[cbName] = function(data) {
+    cleanup();
+    if (data && data.error === '金鑰錯誤' && func !== 'authPing') { setGasKey(''); keyAsk('登記密碼不對或已經換過，請重新輸入。'); }   // 2026-11-02
+    onSuccess(data);
+  };
   var q = url + (url.indexOf('?') > -1 ? '&' : '?') +
-          'callback=' + cbName + '&func=' + encodeURIComponent(func) + '&key=' + encodeURIComponent(DEFAULT_GAS_KEY) +
+          'callback=' + cbName + '&func=' + encodeURIComponent(func) + '&key=' + encodeURIComponent(gasKey()) +
           '&params=' + encodeURIComponent(JSON.stringify(params));
   script = document.createElement('script');
   script.src = q;
