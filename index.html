@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>刺繡模擬圖工具（v15.1）</title>
+<title>刺繡模擬圖工具（v15.2）</title>
 <link rel="icon" type="image/png" href="https://deagiftt-beep.github.io/dea-assets/favicon.png">
 <style>
   :root { --cm: 50; --accent: #F29027; }
@@ -66,7 +66,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.1 姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.2 姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
 </header>
 
 <div class="app">
@@ -455,9 +455,9 @@ function parseLine(line){
   } else if(isNameStrap){
     // v15.0 掛飾：先認明講的（藍繩／粉繩／黃繩／金色／銀色／玫瑰金／槍黑、含「金色D扣」「藍色繩」這類寫法）
     for(let i=0;i<tokens.length;i++){ const fk=fitKey(tokens[i], true); if(fk){ fitting=fk; tokens.splice(i,1); i--; break; } }
-    if(!fitting){   // 沒明講 → 兩個都是裸色（藍色+粉色）時，照 2.0 格式「掛飾在前、織帶在後」：第一個當掛繩
+    if(!fitting){   // v15.2 沒明講 → 兩個都是裸色（黃+白）時，照詳情頁順序「織帶顏色＋掛飾」：第二個當掛飾（白＝藍繩）；第二個不是掛飾色才用第一個
       const ci=[]; tokens.forEach((t,i)=>{ if(Object.keys(NAME_COLORS).find(k=>t===k||t===k+'色')) ci.push(i); });
-      if(ci.length>=2 && FIT_BARE[tokens[ci[0]]]){ fitting=FIT_BARE[tokens[ci[0]]]; tokens.splice(ci[0],1); }
+      if(ci.length>=2){ const pk=FIT_BARE[tokens[ci[1]]]?ci[1]:(FIT_BARE[tokens[ci[0]]]?ci[0]:-1); if(pk>=0){ fitting=FIT_BARE[tokens[pk]]; tokens.splice(pk,1); } }
     }
     if(!fitting){ for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hit=Object.keys(METAL_MAP).find(k=>t===k||t.includes(k)); if(hit){ metalHex=METAL_MAP[hit]; fitting=FIT_METAL_CANON[hit]||null; tokens.splice(i,1); i--; break; } } }
     if(fitting&&FITTINGS[fitting]) metalHex=FITTINGS[fitting].clip;
