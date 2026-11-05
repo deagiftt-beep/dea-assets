@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>刺繡模擬圖工具（v14.0）</title>
+<title>刺繡模擬圖工具（v15.0）</title>
 <link rel="icon" type="image/png" href="https://deagiftt-beep.github.io/dea-assets/favicon.png">
 <style>
   :root { --cm: 50; --accent: #F29027; }
@@ -66,13 +66,13 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v14.4 含登記功能・紅字備註・指定出貨日）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.0 姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
 </header>
 
 <div class="app">
   <div class="panel">
     <label>把客人留言貼在這裡（每行一條，最多 10 條）：</label>
-    <textarea id="orders" placeholder="行李飄帶:顏色+文字+小圖編號&#10;姓名織帶:顏色+金屬夾+文字+小圖編號&#10;寶寶領巾:b+顏色+文字+小圖編號&#10;小圖可在文字之前，例如:原色+20+文字"></textarea>
+    <textarea id="orders" placeholder="行李飄帶:顏色+文字+小圖編號&#10;姓名織帶:顏色+掛飾+文字+小圖編號（掛飾：藍繩/粉繩/黃繩/金色/銀色/玫瑰金/槍黑）&#10;寶寶領巾:b+顏色+文字+小圖編號&#10;小圖可在文字之前，例如:原色+20+文字"></textarea>
 
     <div class="row" style="margin-top:10px">
       <span class="small">顯示可刺繡範圍虛線</span>
@@ -160,6 +160,52 @@ const NAME_TOTAL_LEN_CM=16.15, NAME_CLIP_W_CM=2.35, NAME_STRAP_LEN_CM=13.8, NAME
 const BIB_W_CM=29.0, BIB_H_CM=14.5;
 
 const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫瑰':'#ECB98D','金色':'#FEE6A8','金':'#FEE6A8','槍黑色':'#727171','槍黑':'#727171','黑':'#727171'};
+/* v15.0 姓名織帶 2.0 掛飾：掛繩款（藍繩／粉繩／黃繩）＋ D 扣款（金／銀／玫瑰金／槍黑）。
+   織帶本體照舊用程式畫；掛飾改用去背 PNG（dea-assets/fittings/）貼在織帶左端，壓條高度＝織帶寬＋0.2cm、壓條蓋住織帶左端。
+   圖載不到就退回原本程式畫的金屬夾（RPA 不會因此掛掉）。bar/barH/barTop 是圖裡壓條的位置（px），換高解析圖時請一起更新。 */
+const FITTINGS={
+  '藍繩':{file:'rope_blue',  clip:'#F2F2F2', w:394,h:111,bar:32,barH:94, barTop:2},
+  '粉繩':{file:'rope_pink',  clip:'#F0C8CC', w:416,h:105,bar:33,barH:101,barTop:2},
+  '黃繩':{file:'rope_yellow',clip:'#F3EFC8', w:423,h:99, bar:34,barH:91, barTop:6},
+  '金色':{file:'dring_gold',    clip:'#FEE6A8', w:244,h:125,bar:41,barH:121,barTop:2},
+  '銀色':{file:'dring_silver',  clip:'#EFEFEF', w:221,h:126,bar:35,barH:119,barTop:2},
+  '玫瑰金':{file:'dring_rosegold',clip:'#ECB98D', w:241,h:123,bar:43,barH:119,barTop:2},
+  '槍黑色':{file:'dring_black', clip:'#727171', w:240,h:123,bar:42,barH:119,barTop:2}
+};
+const FIT_METAL_CANON={'銀色':'銀色','銀':'銀色','玫瑰金':'玫瑰金','玫瑰':'玫瑰金','金色':'金色','金':'金色','槍黑色':'槍黑色','槍黑':'槍黑色','黑':'槍黑色'};
+const FIT_ROPE_RE=/^(藍|粉|黃|白)(色|紅|紅色)?(掛)?繩(子|款)?$|^掛繩(款)?(藍|粉|黃|白)(色)?$|^(藍|粉|黃|白)(色)?掛繩款$/;
+const FIT_BARE={'藍':'藍繩','藍色':'藍繩','白':'藍繩','白色':'藍繩','粉':'粉繩','粉色':'粉繩','粉紅':'粉繩','粉紅色':'粉繩','黃':'黃繩','黃色':'黃繩'};
+/* token → 掛飾正式名；explicit=true 只認明講的（藍繩／金色…），false 連裸色（藍色／粉色）也認 */
+function fitKey(t, explicit){
+  t=String(t||'').trim();
+  const m=t.match(FIT_ROPE_RE);
+  if(m){ const c=m[1]||m[6]||m[8]; return c==='白'?'藍繩':(c+'繩'); }
+  if(/夾|扣|釦|頭|掛飾|金屬/.test(t)){ const base=t.replace(/(金屬夾|金屬|夾頭|尾夾|掛飾|D扣|D環|D型扣|d扣|夾|扣|釦|頭|款)+$/,'').replace(/色$/,''); if(base==='' ) return null; if(FIT_METAL_CANON[base]||FIT_METAL_CANON[base+'色']) return FIT_METAL_CANON[base]||FIT_METAL_CANON[base+'色']; const r=(base).match(/^(藍|粉|黃|白)$/); if(r) return r[1]==='白'?'藍繩':(r[1]+'繩'); return null; }
+  const mk=Object.keys(FIT_METAL_CANON).find(k=>t===k||t===k+'色'); if(mk) return FIT_METAL_CANON[mk];
+  if(!explicit && FIT_BARE[t]) return FIT_BARE[t];
+  return null;
+}
+const fitImgCache=new Map();
+async function loadFittingImage(key){
+  const f=FITTINGS[key]; if(!f) return null;
+  if(fitImgCache.has(key)) return fitImgCache.get(key);
+  const baseUrl=document.getElementById('githubBaseUrl').value.replace(/\/$/, '');
+  const cands=[`${baseUrl}/fittings/${f.file}.png`, `https://cdn.jsdelivr.net/gh/deagiftt-beep/dea-assets@main/fittings/${f.file}.png`];
+  for(const url of cands){
+    try{
+      const img=await new Promise((res,rej)=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=()=>rej(); im.src=url; });
+      fitImgCache.set(key,img); return img;
+    }catch(e){ continue; }
+  }
+  fitImgCache.set(key,null); return null;
+}
+/* 這一條姓名織帶畫出來的總長（px）：掛飾圖 ＋ 織帶 － 被壓條蓋住的部分；沒有圖就是舊版固定長 */
+function nameRowLen(spec){
+  const f=spec.fitting&&FITTINGS[spec.fitting];
+  if(!f||!spec.fitImg) return cm(NAME_TOTAL_LEN_CM);
+  const s=(cm(NAME_W_CM)+cm(0.2))/f.barH;
+  return Math.round(f.w*s + cm(NAME_STRAP_LEN_CM) - f.bar*s);
+}
 
 const MARGIN_CM=4.0, CAPTION_PT=19, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
 const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, MAX_SPAN_CM=14.5;
@@ -171,7 +217,7 @@ const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':
 function textColorForStrap(name){ const natural=['原色','米白','奶油白','米色','原','黃色','黃']; for(const k of natural){ if((name||'').includes(k)) return '#000'; } return '#fff'; }
 
 const NAME_COLORS={'白色':'#FFFFFF','白':'#FFFFFF','原色':'#F4EEE9','原':'#F4EEE9','米色':'#F4EEE9','卡其色':'#D0AD9A','卡其':'#D0AD9A','棕':'#D0AD9A','鵝黃色':'#FFEBBF','鵝黃':'#FFEBBF','黃色':'#FFEBBF','黃':'#FFEBBF','粉色':'#D5959A','粉':'#D5959A','灰色':'#9DA1AB','灰':'#9DA1AB','薄荷綠':'#CCE8DB','薄荷':'#CCE8DB','抹茶綠':'#ABB199','抹茶':'#ABB199','綠色':'#ABB199','綠':'#ABB199','藍色':'#6E7B97','藍':'#6E7B97'};
-const NAME_TEXT_COLORS={'白色':'#000','白':'#000','原色':'#000','原':'#000','米色':'#000','卡其色':'#fff','卡其':'#fff','棕':'#fff','鵝黃色':'#000','鵝黃':'#000','黃色':'#000','黃':'#000','粉色':'#fff','粉':'#fff','灰色':'#fff','灰':'#fff','薄荷綠':'#000','薄荷':'#000','抹茶綠':'#fff','抹茶':'#fff','綠色':'#fff','綠':'#fff','藍色':'#000','藍':'#000'};
+const NAME_TEXT_COLORS={'白色':'#000','白':'#000','原色':'#000','原':'#000','米色':'#000','卡其色':'#fff','卡其':'#fff','棕':'#fff','鵝黃色':'#000','鵝黃':'#000','黃色':'#000','黃':'#000','粉色':'#fff','粉':'#fff','灰色':'#fff','灰':'#fff','薄荷綠':'#000','薄荷':'#000','抹茶綠':'#fff','抹茶':'#fff','綠色':'#fff','綠':'#fff','藍色':'#fff','藍':'#fff'};   // v15.0 藍色織帶改白字
 
 const BIB_COLORS={
   '黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'鵝黃':{bg:'#e7dcb8',txt:'#9b5c3a'},'奶油黃':{bg:'#e7dcb8',txt:'#9b5c3a'},
@@ -388,7 +434,7 @@ function parseLine(line){
   const tokensAll = tokenizeFlexible(src);
   const isNameStrap = !isBib && tokensAll.length >= 4;
   let tokens = tokensAll.slice();
-  let colorHex='#ccc', textHex='#fff', metalHex=null, colorToken=null;
+  let colorHex='#ccc', textHex='#fff', metalHex=null, colorToken=null, fitting=null;   // v15.0 fitting＝掛飾正式名
 
   if(isBib) {
     for(let i=0;i<tokens.length;i++){
@@ -403,7 +449,14 @@ function parseLine(line){
     }
     if(!colorToken){ colorHex='#e7dcb8'; textHex=explicitColor || '#9b5c3a'; }
   } else if(isNameStrap){
-    for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hit=Object.keys(METAL_MAP).find(k=>t===k||t.includes(k)); if(hit){ metalHex=METAL_MAP[hit]; tokens.splice(i,1); i--; break; } }
+    // v15.0 掛飾：先認明講的（藍繩／粉繩／黃繩／金色／銀色／玫瑰金／槍黑、含「金色D扣」「藍色繩」這類寫法）
+    for(let i=0;i<tokens.length;i++){ const fk=fitKey(tokens[i], true); if(fk){ fitting=fk; tokens.splice(i,1); i--; break; } }
+    if(!fitting){   // 沒明講 → 兩個都是裸色（藍色+粉色）時，照 2.0 格式「掛飾在前、織帶在後」：第一個當掛繩
+      const ci=[]; tokens.forEach((t,i)=>{ if(Object.keys(NAME_COLORS).find(k=>t===k||t===k+'色')) ci.push(i); });
+      if(ci.length>=2 && FIT_BARE[tokens[ci[0]]]){ fitting=FIT_BARE[tokens[ci[0]]]; tokens.splice(ci[0],1); }
+    }
+    if(!fitting){ for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hit=Object.keys(METAL_MAP).find(k=>t===k||t.includes(k)); if(hit){ metalHex=METAL_MAP[hit]; fitting=FIT_METAL_CANON[hit]||null; tokens.splice(i,1); i--; break; } } }
+    if(fitting&&FITTINGS[fitting]) metalHex=FITTINGS[fitting].clip;
     for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hk=Object.keys(NAME_COLORS).find(k=>t===k||t.includes(k)); if(hk){ colorToken=t; colorHex=NAME_COLORS[hk]; tokens.splice(i,1); i--; break; } }
     if(!colorToken){
       for(let i=0;i<tokens.length;i++){ const t=tokens[i]; const hk=Object.keys(COLORS).find(k=>t===k||t.includes(k)); if(hk){ colorToken=t; colorHex=COLORS[hk]; tokens.splice(i,1); i--; break; } }
@@ -430,7 +483,7 @@ function parseLine(line){
   }
   const text = textTokens.join(' ').trim();
   const type = isBib ? 'bib' : (isNameStrap ? 'name' : 'lug');
-  return { type, text, iconNo, iconPos, colorHex, textHex, metalHex };
+  return { type, text, iconNo, iconPos, colorHex, textHex, metalHex, fitting };
 }
 
 async function drawBib(ctx, x, y, spec){
@@ -551,8 +604,19 @@ async function drawLuggageStrap(ctx,x,y,spec){
 
 async function drawNameStrap(ctx,x,y,spec){
   const L=cm(NAME_TOTAL_LEN_CM), W=cm(NAME_W_CM);
-  const clipTotal=cm(NAME_CLIP_W_CM), cPartW=cm(1.15), clampW=cm(1.20), strapLen=cm(NAME_STRAP_LEN_CM);
+  let clipTotal=cm(NAME_CLIP_W_CM), cPartW=cm(1.15), clampW=cm(1.20), strapLen=cm(NAME_STRAP_LEN_CM);
+  const fit=spec.fitting&&FITTINGS[spec.fitting], fitImg=fit?spec.fitImg:null;   // v15.0 掛飾去背圖（layoutAndRender 先載好放在 spec.fitImg）
   ctx.save(); ctx.translate(x,y);
+  if(fitImg){
+    const s=(W+cm(0.2))/fit.barH, fw=fit.w*s, fh=fit.h*s;
+    const fy=W/2-(fit.barTop+fit.barH/2)*s;        // 壓條垂直置中在織帶上
+    clipTotal=fw;                                    // 織帶看得到的部分從掛飾圖右緣開始
+    const strapX=fw-fit.bar*s;                       // 織帶左端插進壓條裡（被圖蓋住）
+    ctx.fillStyle=spec.colorHex||'#ddd'; ctx.fillRect(strapX,0,strapLen,W);
+    if((spec.colorHex||'').toUpperCase()==='#FFFFFF'){ ctx.strokeStyle='#D9D9D9'; ctx.lineWidth=cm(0.06); ctx.strokeRect(strapX,0,strapLen,W); }
+    ctx.drawImage(fitImg,0,fy,fw,fh);
+    strapLen=strapLen-fit.bar*s;                     // 下面排字用的可用長度（壓條蓋住的不算）
+  } else {
   ctx.fillStyle=spec.colorHex||'#ddd'; ctx.fillRect(clipTotal,0,strapLen,W);
   if((spec.colorHex||'').toUpperCase()==='#FFFFFF'){ ctx.strokeStyle='#D9D9D9'; ctx.lineWidth=cm(0.06); ctx.strokeRect(clipTotal,0,strapLen,W); }
 
@@ -576,6 +640,7 @@ async function drawNameStrap(ctx,x,y,spec){
   const ringR=cm(2.6/2), ringCy=W/2, ringCx=outerX-ringR+t*0.6;
   ctx.save(); ctx.lineWidth=cm(0.12); ctx.strokeStyle=mcDark; ctx.beginPath(); ctx.arc(ringCx,ringCy,ringR,0,Math.PI*2); ctx.stroke();
   ctx.strokeStyle=mcLite; ctx.lineWidth=cm(0.06); ctx.beginPath(); ctx.arc(ringCx,ringCy,ringR,-0.2*Math.PI,0.7*Math.PI); ctx.stroke(); ctx.restore();
+  }   // v15.0 舊畫法結束
 
   const usableStart=clipTotal, usableEnd=clipTotal+strapLen;
   const centerCandidate=(usableStart+usableEnd)/2;
@@ -659,6 +724,7 @@ async function layoutAndRender(){
   const lines=splitLines(raw).slice(0,10);
   const parsed=lines.map(parseLine).filter(p=>p&&(p.text||p.iconNo||p.colorHex));
   const n=Math.max(0,Math.min(10,parsed.length));
+  for(const p of parsed){ if(p.type==='name'&&p.fitting&&FITTINGS[p.fitting]) p.fitImg=await loadFittingImage(p.fitting); }   // v15.0 掛飾圖先載好（載不到＝舊畫法）
 
   const placeholder = document.getElementById('placeholderText');
   const previewImg = document.getElementById('previewImg');
@@ -686,6 +752,7 @@ async function layoutAndRender(){
   const canvasH=Math.round(margin + totalH + (capText ? cm(CAPTION_GAP_CM):0) + captionH + cm(BOTTOM_AFTER_CAP_CM));
   sheet.width=canvasW; sheet.height=canvasH; ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvasW,canvasH);
 
+  const nameMaxLen=Math.max(0, ...parsed.filter(p=>p.type==='name').map(nameRowLen));   // v15.0
   let curY=margin;
   for(let i=0;i<n;i++){
     const p=parsed[i];
@@ -695,7 +762,7 @@ async function layoutAndRender(){
       await drawBib(ctx, x, curY, p);
       curY += cm(BIB_H_CM) + gap;
     } else if(p.type === 'name') {
-      x = Math.round((canvasW - cm(NAME_TOTAL_LEN_CM))/2);
+      x = Math.round((canvasW + nameMaxLen)/2 - nameRowLen(p));   // v15.0 最長那條置中，其他條織帶右緣對齊它（掛繩款比 D 扣款長，字的位置才會整齊）
       await drawNameStrap(ctx, x, curY, p);
       curY += cm(NAME_W_CM) + gap;
     } else {
