@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>刺繡模擬圖工具（v15.0）</title>
+<title>刺繡模擬圖工具（v15.1）</title>
 <link rel="icon" type="image/png" href="https://deagiftt-beep.github.io/dea-assets/favicon.png">
 <style>
   :root { --cm: 50; --accent: #F29027; }
@@ -66,7 +66,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.0 姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.1 姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
 </header>
 
 <div class="app">
@@ -163,14 +163,18 @@ const METAL_MAP={'銀色':'#EFEFEF','銀':'#EFEFEF','玫瑰金':'#ECB98D','玫�
 /* v15.0 姓名織帶 2.0 掛飾：掛繩款（藍繩／粉繩／黃繩）＋ D 扣款（金／銀／玫瑰金／槍黑）。
    織帶本體照舊用程式畫；掛飾改用去背 PNG（dea-assets/fittings/）貼在織帶左端，壓條高度＝織帶寬＋0.2cm、壓條蓋住織帶左端。
    圖載不到就退回原本程式畫的金屬夾（RPA 不會因此掛掉）。bar/barH/barTop 是圖裡壓條的位置（px），換高解析圖時請一起更新。 */
+/* v15.1 掛飾改用美工重畫的插圖（2026-11-05）。數字都是圖裡的像素：w/h 圖的寬高；barL/barR 壓條（夾住織帶那塊）的左右緣；
+   barTop/barH 壓條的上緣與高度。工具把圖縮放到「壓條高＝織帶寬＋0.2cm」，織帶左端從 barL 插進壓條（被圖蓋住），
+   繡字範圍從壓條右緣 barR 開始算；掛繩款的小圓環超出壓條右緣，會疊在織帶上（跟實物一樣）。換圖時這幾個數字要跟著改。 */
+const FIT_VER='151';   // 換圖時改這個數字，瀏覽器和 RPA 才不會拿到快取的舊圖
 const FITTINGS={
-  '藍繩':{file:'rope_blue',  clip:'#F2F2F2', w:394,h:111,bar:32,barH:94, barTop:2},
-  '粉繩':{file:'rope_pink',  clip:'#F0C8CC', w:416,h:105,bar:33,barH:101,barTop:2},
-  '黃繩':{file:'rope_yellow',clip:'#F3EFC8', w:423,h:99, bar:34,barH:91, barTop:6},
-  '金色':{file:'dring_gold',    clip:'#FEE6A8', w:244,h:125,bar:41,barH:121,barTop:2},
-  '銀色':{file:'dring_silver',  clip:'#EFEFEF', w:221,h:126,bar:35,barH:119,barTop:2},
-  '玫瑰金':{file:'dring_rosegold',clip:'#ECB98D', w:241,h:123,bar:43,barH:119,barTop:2},
-  '槍黑色':{file:'dring_black', clip:'#727171', w:240,h:123,bar:42,barH:119,barTop:2}
+  '藍繩':{file:'rope_blue',  clip:'#F2F2F2', w:950,h:250,barL:823,barR:898,barTop:16,barH:198},
+  '粉繩':{file:'rope_pink',  clip:'#F0C8CC', w:946,h:250,barL:819,barR:894,barTop:14,barH:201},
+  '黃繩':{file:'rope_yellow',clip:'#F3EFC8', w:944,h:250,barL:817,barR:892,barTop:15,barH:200},
+  '金色':{file:'dring_gold',    clip:'#FEE6A8', w:669,h:251,barL:577,barR:669,barTop:6,barH:240},
+  '銀色':{file:'dring_silver',  clip:'#EFEFEF', w:669,h:252,barL:577,barR:669,barTop:6,barH:238},
+  '玫瑰金':{file:'dring_rosegold',clip:'#ECB98D', w:669,h:252,barL:577,barR:669,barTop:7,barH:239},
+  '槍黑色':{file:'dring_black', clip:'#727171', w:669,h:248,barL:578,barR:669,barTop:4,barH:237}
 };
 const FIT_METAL_CANON={'銀色':'銀色','銀':'銀色','玫瑰金':'玫瑰金','玫瑰':'玫瑰金','金色':'金色','金':'金色','槍黑色':'槍黑色','槍黑':'槍黑色','黑':'槍黑色'};
 const FIT_ROPE_RE=/^(藍|粉|黃|白)(色|紅|紅色)?(掛)?繩(子|款)?$|^掛繩(款)?(藍|粉|黃|白)(色)?$|^(藍|粉|黃|白)(色)?掛繩款$/;
@@ -190,7 +194,7 @@ async function loadFittingImage(key){
   const f=FITTINGS[key]; if(!f) return null;
   if(fitImgCache.has(key)) return fitImgCache.get(key);
   const baseUrl=document.getElementById('githubBaseUrl').value.replace(/\/$/, '');
-  const cands=[`${baseUrl}/fittings/${f.file}.png`, `https://cdn.jsdelivr.net/gh/deagiftt-beep/dea-assets@main/fittings/${f.file}.png`];
+  const cands=[`${baseUrl}/fittings/${f.file}.png?v=${FIT_VER}`, `https://cdn.jsdelivr.net/gh/deagiftt-beep/dea-assets@main/fittings/${f.file}.png?v=${FIT_VER}`];   // v15.1 加版本號避開快取
   for(const url of cands){
     try{
       const img=await new Promise((res,rej)=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=()=>rej(); im.src=url; });
@@ -204,7 +208,7 @@ function nameRowLen(spec){
   const f=spec.fitting&&FITTINGS[spec.fitting];
   if(!f||!spec.fitImg) return cm(NAME_TOTAL_LEN_CM);
   const s=(cm(NAME_W_CM)+cm(0.2))/f.barH;
-  return Math.round(f.w*s + cm(NAME_STRAP_LEN_CM) - f.bar*s);
+  return Math.round(Math.max(f.w*s, f.barL*s + cm(NAME_STRAP_LEN_CM)));   // v15.1 織帶從壓條左緣 barL 插進去
 }
 
 const MARGIN_CM=4.0, CAPTION_PT=19, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), CAPTION_GAP_CM=2.0, BOTTOM_AFTER_CAP_CM=2.0;
@@ -610,12 +614,12 @@ async function drawNameStrap(ctx,x,y,spec){
   if(fitImg){
     const s=(W+cm(0.2))/fit.barH, fw=fit.w*s, fh=fit.h*s;
     const fy=W/2-(fit.barTop+fit.barH/2)*s;        // 壓條垂直置中在織帶上
-    clipTotal=fw;                                    // 織帶看得到的部分從掛飾圖右緣開始
-    const strapX=fw-fit.bar*s;                       // 織帶左端插進壓條裡（被圖蓋住）
+    const strapX=fit.barL*s;                         // v15.1 織帶左端插進壓條裡（被圖蓋住）
     ctx.fillStyle=spec.colorHex||'#ddd'; ctx.fillRect(strapX,0,strapLen,W);
     if((spec.colorHex||'').toUpperCase()==='#FFFFFF'){ ctx.strokeStyle='#D9D9D9'; ctx.lineWidth=cm(0.06); ctx.strokeRect(strapX,0,strapLen,W); }
-    ctx.drawImage(fitImg,0,fy,fw,fh);
-    strapLen=strapLen-fit.bar*s;                     // 下面排字用的可用長度（壓條蓋住的不算）
+    ctx.drawImage(fitImg,0,fy,fw,fh);                // 圖蓋在織帶上面（掛繩款的小圓環會疊在織帶左端）
+    clipTotal=fit.barR*s;                            // v15.1 繡字範圍從壓條右緣開始算（每條的字才會對齊）
+    strapLen=strapX+strapLen-clipTotal;              // 可用長度＝壓條右緣到織帶尾
   } else {
   ctx.fillStyle=spec.colorHex||'#ddd'; ctx.fillRect(clipTotal,0,strapLen,W);
   if((spec.colorHex||'').toUpperCase()==='#FFFFFF'){ ctx.strokeStyle='#D9D9D9'; ctx.lineWidth=cm(0.06); ctx.strokeRect(clipTotal,0,strapLen,W); }
