@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>刺繡模擬圖工具（v15.2）</title>
+<title>刺繡模擬圖工具（v15.3）</title>
 <link rel="icon" type="image/png" href="https://deagiftt-beep.github.io/dea-assets/favicon.png">
 <style>
   :root { --cm: 50; --accent: #F29027; }
@@ -36,6 +36,25 @@
   #saveRecordBtn:disabled { opacity:.5; cursor:not-allowed; }
   #saveRecordStatus { font-size:12px; min-height:1.2em; font-weight:700; }
 
+  /* v15.3 特殊需求（文字線色、文字和小圖間距）＋超出框線提醒 */
+  .spec-box { margin-top:12px; padding:10px 12px; border:1px dashed #d6d3d1; border-radius:12px; background:#fcfcfb; }
+  .spec-title { font-size:12px; font-weight:800; color:#57534e; }
+  .spec-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+  .spec-lbl { font-size:12px; color:#333; font-weight:700; min-width:96px; }
+  button.spec-btn { padding:6px 10px; font-size:12px; border-radius:9px; display:inline-flex; align-items:center; gap:6px; }
+  button.spec-btn.on { background:var(--accent); color:#fff; }
+  #threadDot { width:14px; height:14px; border-radius:999px; display:inline-block; border:1px solid rgba(0,0,0,.25); }
+  .thread-panel { margin-top:8px; padding:8px; border:1px solid #eee; border-radius:10px; background:#fff; }
+  .thread-panel[hidden], .gap-notice[hidden] { display:none !important; }
+  button.thread-def { width:100%; padding:6px 8px; font-size:12px; border-radius:8px; background:#f0f0f0; color:#111; margin-bottom:6px; }
+  .thread-grid { display:grid; grid-template-columns:repeat(10, 1fr); gap:3px; }
+  button.thread-sw { padding:0; height:24px; border-radius:5px; font-size:9.5px; font-weight:700; letter-spacing:0; border:1px solid rgba(0,0,0,.12); }
+  button.thread-sw:hover { outline:2px solid var(--accent); outline-offset:1px; }
+  .spec-hint { margin-top:8px; line-height:1.5; }
+  .gap-notice { margin-top:8px; padding:8px 10px; border:1px solid #fcd34d; background:#fffbeb; color:#92400e; border-radius:10px; font-size:12px; line-height:1.6; }
+  .gap-notice .gn-say { margin-top:4px; color:#3f3f46; }
+  .gap-notice button { padding:4px 10px; font-size:12px; border-radius:8px; margin-left:4px; }
+
   .switch { position:relative; display:inline-block; width:44px; height:24px; }
   .switch input { display:none; }
   .slider { position:absolute; inset:0; background:#ddd; border-radius:999px; transition:.2s; }
@@ -66,7 +85,7 @@
 <body>
 <header>
   <div class="dot"></div>
-  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.2 姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
+  <h1>行李飄帶/姓名織帶/寶寶領巾（v15.3 間距固定・特殊線色／間距・姓名織帶 2.0 掛飾・含登記功能・紅字備註・指定出貨日）</h1>
 </header>
 
 <div class="app">
@@ -87,7 +106,27 @@
       <span id="copyStatus" class="status"></span>
     </div>
 
+    <div id="gapNotice" class="gap-notice" hidden></div>
+
     <div class="muted" style="margin-top:6px;">手機操作提醒：圖檔產生後，直接「長按右方圖片」即可儲存或拷貝。</div>
+
+    <!-- v15.3 特殊需求：文字線色、文字和小圖間距（大量訂製才用，平常不用動） -->
+    <div class="spec-box">
+      <div class="spec-title">特殊需求（大量訂製才用，平常不用動）</div>
+      <div class="spec-row">
+        <span class="spec-lbl">文字線色</span>
+        <button type="button" id="threadBtn" class="secondary spec-btn"><i id="threadDot"></i><span id="threadLbl">預設（黑／白）</span> ▾</button>
+      </div>
+      <div id="threadPanel" class="thread-panel" hidden></div>
+      <div class="spec-row">
+        <span class="spec-lbl">文字和小圖間距</span>
+        <button type="button" class="secondary spec-btn gapBtn" data-gap="0">標準</button>
+        <button type="button" class="secondary spec-btn gapBtn" data-gap="5">+5mm</button>
+        <button type="button" class="secondary spec-btn gapBtn" data-gap="10">+10mm</button>
+      </div>
+      <div class="muted spec-hint">標準＝飄帶 8mm、姓名織帶 5mm、領巾 8mm（跟自動打版一樣）。按了會在處理框每一行後面加上 (線色023)、(間距+5) 這種記號，也可以自己打；先反白其中幾行再按，就只改那幾行。儲存時記號會拿掉，改寫成紅字備註給師傅。</div>
+      <div id="specStatus" class="status" style="margin-left:0;"></div>
+    </div>
 
     <!-- ===== 新增：客人帳號 + 儲存模擬圖資料 ===== -->
     <div class="save-box">
@@ -215,6 +254,47 @@ const MARGIN_CM=4.0, CAPTION_PT=19, CAPTION_PX=Math.round(CAPTION_PT*(96/72)), C
 const EN_BASE_CM=2.5*1.2*0.95, CJK_RATIO=0.70*0.90, TEXT_SHIFT_DESC_CM=0.10, DEFAULT_ICON_H_CM=3.0, MAX_SPAN_CM=14.5;
 
 const DEFAULT_GAP_CM=0.8;
+/* v15.3（2026-11-12）文字和小圖的間距改成固定，跟自動打版一樣：飄帶 8mm、姓名織帶 5mm、領巾 8mm。
+   以前文字一長就自動把間距縮小（最小縮到 0），模擬圖和實品的間距會對不起來。現在不縮：
+   處理框某行寫 (間距+5)／(間距+10) 就再加 5／10mm；文字＋小圖超出框線（虛線）照畫，記在 window.__gapOver，
+   工具下方會提醒，RPA 發圖時也會跟客人說「製作時會縮減間距」。FRAME_W_CM 就是虛線框的寬。 */
+const GAP_BASE_CM={lug:0.8, name:0.5, bib:0.8};
+const FRAME_W_CM={lug:15.0, name:8.5, bib:10.0};
+const GAP_OVER_MIN_CM=0.1;   // 超出不到 1mm 不算（量字寬的誤差）
+function gapLayout(type, textW, iconW, hasIcon, addMm){
+  const gap=cm((GAP_BASE_CM[type]||0.8)+(addMm||0)/10), frame=cm(FRAME_W_CM[type]||15);
+  const total=textW+(hasIcon?(gap+iconW):0);
+  return { gap, total, frame, overCm:(total-frame)/PX_PER_CM,
+           notify: !!hasIcon && (total-frame)/PX_PER_CM>GAP_OVER_MIN_CM,            // 有小圖、超出框線 → 要跟客人說
+           tight:  !!hasIcon && (textW+iconW-frame)/PX_PER_CM>GAP_OVER_MIN_CM };   // 間距縮到 0 也放不下 → 文字也要縮
+}
+/* v15.3 特殊線色（大量訂製才用）：處理框某行寫 (線色023) → 那條的字用色卡 023 的顏色；沒寫＝照舊黑／白。
+   色號照「加繡文字」色卡 001–100（2026-11-12 從色卡圖取的螢幕色，實際以繡線為準）。 */
+const THREAD_HEX='FFFFFF F6F6F4 FAF8EC E7D5C1 D2AD81 BDA893 CBC0AC AFA28F B2B9A9 744929 8F6034 CC7E34 F2D14E FEFACB F3B095 EED2BD FFCFD2 F7B1BC E90F65 FA5478 EB5A61 7E1416 B60F20 D71422 F7342E EC7135 FCA32B BD3946 BE6770 9F6D76 DE9C9D B6C79D C7C271 758A63 99CEA0 60B4A4 006E75 1A8E81 145652 244D53 027C89 1590C9 85B4C4 B5E4F4 B3BCE5 1F56B0 222E7A 531868 81568B 711335 792C58 573778 6A495C 957BA2 C87EB3 AF5F86 703958 74303B 693E35 743523 995D43 704825 49352C 343F5B 2C355E 392D5B D8C9CE DEDEDC D3D4D6 E2E7E1 B5B6AE 8D8F8C 716863 464B44 4B5435 797859 807258 575A49 5A4D44 D9D9D9 AFAFB7 6B6C71 887763 8A887B 7B7987 7E7F7A 6E7556 575A49 494E38 5E4D2F 383330 473D34 533C2C 845632 C86A2C B08447 E5C056 514144 2A2426 0E0E0E'.split(' ');
+const THREAD_COLORS={}; THREAD_HEX.forEach((h,i)=>{ THREAD_COLORS[String(i+1).padStart(3,'0')]='#'+h; });
+const THREAD_RE=/[\(（]?\s*線色\s*[:：]?\s*(\d{1,3})\s*號?\s*[\)）]?/, THREAD_CUT=new RegExp('[ \\t\\u3000]*'+THREAD_RE.source,'g');   // CUT：連前面的空白一起拿掉
+const GAPADD_RE=/[\(（]?\s*間距\s*[+＋]\s*(10|5)(?!\d)\s*(?:mm|ｍｍ|毫米|公釐)?\s*[\)）]?/i, GAPADD_CUT=new RegExp('[ \\t\\u3000]*'+GAPADD_RE.source,'gi');
+/* 一行裡的特殊記號 → { thread:'023'（不在色卡＝''）, threadBad:不在色卡的號碼, gapAdd:5／10／0, rest:拿掉記號後的內容 } */
+function specialOf(line){
+  let rest=String(line||''), thread='', threadBad='', gapAdd=0;
+  const t=rest.match(THREAD_RE);
+  if(t){ const k=String(parseInt(t[1],10)).padStart(3,'0'); if(THREAD_COLORS[k]) thread=k; else threadBad=t[1]; rest=rest.replace(THREAD_CUT,''); }
+  const g=rest.match(GAPADD_RE);
+  if(g){ gapAdd=parseInt(g[1],10); rest=rest.replace(GAPADD_CUT,''); }
+  if(t||g) rest=rest.trim();
+  return { thread, threadBad, gapAdd, rest };
+}
+/* v15.3 特殊線色：在這條左上方標「● 文字線色 023」，客人和師傅都看得到用了哪個色號（放左邊才不會壓到虛線） */
+function drawThreadTag(ctx, p, x, top){
+  const label='文字線色 '+p.thread, fs=cm(0.5), r=cm(0.2), y=top-cm(p.type==='name' ? 0.55 : 0.3);   // 姓名織帶的掛飾圖比織帶高一點，標高一點
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x+r, y-fs*0.36, r, 0, Math.PI*2); ctx.fillStyle=THREAD_COLORS[p.thread]||'#000'; ctx.fill();
+  ctx.lineWidth=cm(0.03); ctx.strokeStyle='#bdbdbd'; ctx.stroke();
+  ctx.font='700 '+fs+"px system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang TC','Microsoft JhengHei', sans-serif";
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#6b6b6b';
+  ctx.fillText(label, x+r*2+cm(0.2), y);
+  ctx.restore();
+}
 const GAP_CM=2.0;
 
 const COLORS={'粉色':'#E3C6C6','粉紅':'#E3C6C6','粉紅色':'#E3C6C6','粉':'#E3C6C6','紫色':'#AEA2AC','紫':'#AEA2AC','綠色':'#B7BEA8','綠':'#B7BEA8','藍色':'#B8C5D6','藍':'#B8C5D6','咖啡色':'#B29E8D','咖啡':'#B29E8D','棕':'#B29E8D','棕色':'#B29E8D','卡其':'#B29E8D','黑色':'#343436','黑':'#343436','原色':'#F3EFEC','米白':'#F3EFEC','奶油白':'#F3EFEC','米色':'#F3EFEC','原':'#F3EFEC','黃色':'#ffe4a2','黃':'#ffe4a2'};
@@ -428,11 +508,12 @@ function parseLine(line){
     src = bibMatch[1];
   }
 
+  const sp=specialOf(src); src=sp.rest;   // v15.3 先拿掉 (線色023)／(間距+5)，不然會被當成文字或小圖編號
   let explicitColor=null;
-  if(/\((黑|白)\)/.test(src) || /（(黑|白)）/.test(src)){
-    if(/(黑)/.test(src)) explicitColor='#000';
-    if(/(白)/.test(src)) explicitColor='#fff';
-    src = src.replace(/\s*[\(（](黑|白)[\)適|適用]\s*/g,' ').trim();
+  const ecm=src.match(/[\(（]\s*(黑|白)\s*[\)）]/);   // v15.3 只看括號裡的字（以前看整行有沒有黑／白：白色織帶寫 (黑) 會畫成白字）；全形括號也拿得掉
+  if(ecm){
+    explicitColor = (ecm[1]==='黑') ? '#000' : '#fff';
+    src = src.replace(/\s*[\(（]\s*(黑|白)\s*[\)）]\s*/g,' ').trim();
   }
 
   const tokensAll = tokenizeFlexible(src);
@@ -472,6 +553,7 @@ function parseLine(line){
     textHex = explicitColor || textColorForStrap(colorToken||'');
   }
 
+  if(sp.thread) textHex = THREAD_COLORS[sp.thread];   // v15.3 特殊線色蓋過預設黑／白（也蓋過 (黑)(白)）
   let iconNo = null;
   let iconPos = 'right';
   let textTokens = [];
@@ -487,7 +569,7 @@ function parseLine(line){
   }
   const text = textTokens.join(' ').trim();
   const type = isBib ? 'bib' : (isNameStrap ? 'name' : 'lug');
-  return { type, text, iconNo, iconPos, colorHex, textHex, metalHex, fitting };
+  return { type, text, iconNo, iconPos, colorHex, textHex, metalHex, fitting, thread: sp.thread, gapAddMm: sp.gapAdd };   // v15.3 thread＝特殊線色色號、gapAddMm＝間距多加幾 mm
 }
 
 async function drawBib(ctx, x, y, spec){
@@ -513,13 +595,8 @@ async function drawBib(ctx, x, y, spec){
   const runs = measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
   const textW = runs.totalWidth;
   const iconH = cm(NAME_ICON_H_CM), iconW = iconH;
-  let gap = cm(DEFAULT_GAP_CM);
-  const areaMax = cm(10.0);
-  let total = textW + (spec.iconNo ? (gap + iconW) : 0);
-  if (spec.iconNo && total > areaMax) {
-    gap = Math.max(0, areaMax - (textW + iconW));
-    total = textW + gap + iconW;
-  }
+  const gl = gapLayout('bib', textW, iconW, !!spec.iconNo, spec.gapAddMm); spec.gl = gl;   // v15.3 間距固定 8mm（＋5／10），不再依文字長度自動縮；超出框線照畫
+  const gap = gl.gap, areaMax = gl.frame, total = gl.total;
   let startX = centerX - total/2;
 
   if (showGuides) {
@@ -569,10 +646,9 @@ async function drawLuggageStrap(ctx,x,y,spec){
   const centerCandidate=(usableStart+usableEnd)/2;
   const runs=measureTextRuns(ctx, segmentTextRuns((spec.text||'').trim()));
   const textW=runs.totalWidth;
-  const iconH=cm(DEFAULT_ICON_H_CM), iconW=iconH; let gap=cm(DEFAULT_GAP_CM), max=cm(MAX_SPAN_CM);
-
-  let total=textW+(spec.iconNo?(gap+iconW):0);
-  if(total>max && spec.iconNo){ gap=Math.max(0,max-(textW+iconW)); total=textW+gap+iconW; }
+  const iconH=cm(DEFAULT_ICON_H_CM), iconW=iconH;
+  const gl=gapLayout('lug', textW, iconW, !!spec.iconNo, spec.gapAddMm); spec.gl=gl;   // v15.3 間距固定 8mm（＋5／10），不再依文字長度自動縮；超出框線照畫，提醒客人製作時會縮減間距
+  const gap=gl.gap, total=gl.total;
 
   let startX=centerCandidate-total/2;
   if(startX<usableStart) startX=usableStart;
@@ -580,7 +656,7 @@ async function drawLuggageStrap(ctx,x,y,spec){
   const centerX = startX + total/2;
 
   if(showGuides){
-    const guideHalf=cm(15/2), dashH=cm(5.0);
+    const guideHalf=gl.frame/2, dashH=cm(5.0);   // v15.3 跟超出判斷用同一個框寬（15cm）
     const leftGuide=centerX-guideHalf, rightGuide=centerX+guideHalf;
     const topY = (W - dashH)/2, botY = topY + dashH;
     ctx.save(); ctx.setLineDash([cm(0.2), cm(0.2)]); ctx.lineWidth=cm(0.06);
@@ -651,19 +727,13 @@ async function drawNameStrap(ctx,x,y,spec){
   const runs=measureTextRunsScaled(ctx, segmentTextRuns((spec.text||'').trim()), NAME_SCALE);
   const textW=runs.totalWidth;
   const iconH=cm(NAME_ICON_H_CM), iconW=iconH;
-  let gap=cm(DEFAULT_GAP_CM);
-  const areaMax = cm(8.5);
-  let total = textW + (spec.iconNo ? (gap + iconW) : 0);
-
-  if (spec.iconNo && total > areaMax) {
-    gap = Math.max(0, areaMax - (textW + iconW));
-    total = textW + gap + iconW;
-  }
+  const gl=gapLayout('name', textW, iconW, !!spec.iconNo, spec.gapAddMm); spec.gl=gl;   // v15.3 間距固定 5mm（＋5／10），不再依文字長度自動縮；超出框線照畫
+  const gap=gl.gap, total=gl.total;
   let startX=centerCandidate-total/2; if(startX<usableStart) startX=usableStart; if(startX+total>usableEnd) startX=Math.max(usableStart, usableEnd-total);
   const centerX = startX + total/2;
 
   if(showGuides){
-    const guideHalf=cm(8.5/2), dashH=cm(4.2);
+    const guideHalf=gl.frame/2, dashH=cm(4.2);   // v15.3 跟超出判斷用同一個框寬（8.5cm）
     const leftGuide=centerX-guideHalf, rightGuide=centerX+guideHalf;
     const topY = (W - dashH)/2, botY = topY + dashH;
     ctx.save(); ctx.setLineDash([cm(0.2), cm(0.2)]); ctx.lineWidth=cm(0.06);
@@ -728,6 +798,7 @@ async function layoutAndRender(){
   const lines=splitLines(raw).slice(0,10);
   const parsed=lines.map(parseLine).filter(p=>p&&(p.text||p.iconNo||p.colorHex));
   const n=Math.max(0,Math.min(10,parsed.length));
+  window.__gapOver=[]; specSyncUI(parsed);   // v15.3 __gapOver：文字＋小圖超出框線的條（RPA 讀）
   for(const p of parsed){ if(p.type==='name'&&p.fitting&&FITTINGS[p.fitting]) p.fitImg=await loadFittingImage(p.fitting); }   // v15.0 掛飾圖先載好（載不到＝舊畫法）
 
   const placeholder = document.getElementById('placeholderText');
@@ -736,6 +807,7 @@ async function layoutAndRender(){
   if (n === 0) {
     previewImg.style.display = 'none';
     placeholder.style.display = 'inline-block';
+    showGapNotice(0);   // v15.3
     return;
   }
 
@@ -761,6 +833,7 @@ async function layoutAndRender(){
   for(let i=0;i<n;i++){
     const p=parsed[i];
     let x = margin;
+    const rowTop=curY;   // v15.3 這一條的上緣
     if (p.type === 'bib') {
       x = Math.round((canvasW - cm(BIB_W_CM))/2);
       await drawBib(ctx, x, curY, p);
@@ -774,6 +847,8 @@ async function layoutAndRender(){
       await drawLuggageStrap(ctx, x, curY, p);
       curY += cm(STRAP_W_CM) + gap;
     }
+    if(p.thread) drawThreadTag(ctx, p, x, rowTop);   // v15.3 特殊線色：左上方標色號
+    if(p.gl && p.gl.notify) window.__gapOver.push({ line:i+1, overCm:Math.round(p.gl.overCm*10)/10, tight:!!p.gl.tight });   // v15.3
   }
 
   if(capText){
@@ -846,6 +921,7 @@ async function layoutAndRender(){
   previewImg.src = sheet.toDataURL('image/jpeg', 0.95);
   previewImg.style.display = 'block';
   placeholder.style.display = 'none';
+  showGapNotice(n);   // v15.3
 }
 
 async function canvasToUnder2MB(canvas){
@@ -861,6 +937,126 @@ async function canvasToUnder2MB(canvas){
 }
 
 document.getElementById('renderBtn').addEventListener('click', layoutAndRender);
+
+/* ===== v15.3 特殊需求：文字線色、文字和小圖間距（大量訂製才用）=====
+   設定都寫在處理框那幾行後面（(線色023)、(間距+5)），換下一位客人、貼新的內容就自動回到預設，不會沿用到別人。
+   儲存時記號會拿掉（製作內容只留標準格式，打版清單照舊讀得懂），改寫成紅字備註最前面給師傅。 */
+const SPEC_TYPE_ZH={lug:'飄帶', name:'姓名織帶', bib:'領巾'};
+function specEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function specRows(raw){   // 處理框每一條（跳過空行，順序跟模擬圖一樣）→ { no, type, thread, threadBad, gapAdd }
+  return splitLines(raw).map((ln,i)=>{ const s=specialOf(ln), p=parseLine(ln); return { no:i+1, type:(p&&p.type)||'lug', thread:s.thread, threadBad:s.threadBad, gapAdd:s.gapAdd }; });
+}
+function specNums(arr){   // [1,2,3,5] → 1–3、5
+  const a=[...new Set(arr)].sort((x,y)=>x-y), out=[]; let s=null, p=null;
+  for(const v of a){ if(s===null){ s=p=v; } else if(v===p+1){ p=v; } else { out.push(s===p?String(s):s+'–'+p); s=p=v; } }
+  if(s!==null) out.push(s===p?String(s):s+'–'+p);
+  return out.join('、');
+}
+/* 紅字備註要加的那段，例：「文字線色023｜文字和小圖間距+5mm（飄帶共13mm）」；沒有特殊需求＝'' */
+function specialNote(raw){
+  const rows=specRows(raw); if(!rows.length) return '';
+  const parts=[], byT={}, byG={};
+  rows.forEach(r=>{ if(r.thread) (byT[r.thread]=byT[r.thread]||[]).push(r.no); if(r.gapAdd) (byG[r.gapAdd]=byG[r.gapAdd]||[]).push(r); });
+  const tk=Object.keys(byT).sort();
+  if(tk.length===1 && byT[tk[0]].length===rows.length) parts.push('文字線色'+tk[0]);
+  else if(tk.length) parts.push('文字線色：'+tk.map(k=>'第'+specNums(byT[k])+'條'+k).join('、')+'（其他條照預設）');
+  const abs=list=>'（'+[...new Set(list.map(r=>r.type))].map(t=>SPEC_TYPE_ZH[t]+'共'+Math.round(GAP_BASE_CM[t]*10+list[0].gapAdd)+'mm').join('／')+'）';
+  const gk=Object.keys(byG).map(Number).sort((a,b)=>a-b);
+  if(gk.length===1 && byG[gk[0]].length===rows.length) parts.push('文字和小圖間距+'+gk[0]+'mm'+abs(byG[gk[0]]));
+  else if(gk.length) parts.push('文字和小圖間距：'+gk.map(k=>'第'+specNums(byG[k].map(r=>r.no))+'條+'+k+'mm'+abs(byG[k])).join('、'));
+  return parts.join('｜');
+}
+/* 儲存用：每一行拿掉 (線色…)(間距…) 記號，其他照原樣 */
+function stripSpecialAll(raw){
+  return String(raw||'').split('\n').map(l=>{ const s=specialOf(l); return (s.thread||s.threadBad||s.gapAdd) ? s.rest : l; }).join('\n').trim();
+}
+function specSay(msg, bad){
+  const el=document.getElementById('specStatus'); if(!el) return;
+  el.style.color = bad ? '#dc2626' : '#0d9488'; el.textContent = msg;
+  clearTimeout(specSay.t); specSay.t=setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 5000);
+}
+/* 套用到哪幾行：處理框有反白＝反白碰到的那幾行；沒反白＝全部（空行跳過） */
+function specTargets(ta){
+  const lines=ta.value.split('\n'), s=ta.selectionStart, e=ta.selectionEnd, hit=[]; let pos=0, no=0;
+  lines.forEach((ln,i)=>{ const a=pos, b=pos+ln.length; pos=b+1; if(!ln.trim()) return; no++; if(s===e || (b>=s && a<e)) hit.push({ i, no }); });
+  return { lines, hit, partial: s!==e };
+}
+function specApply(kind, val){   // kind：'thread'（val＝'023'，''＝預設）或 'gap'（val＝5／10，0＝標準）
+  const ta=document.getElementById('orders');
+  const { lines, hit, partial }=specTargets(ta);
+  if(!hit.length){ specSay('處理框是空的，先貼客人的內容', true); return; }
+  const re = (kind==='thread') ? THREAD_CUT : GAPADD_CUT;
+  hit.forEach(h=>{
+    let ln=lines[h.i].replace(re,'').replace(/\s+$/,'');
+    if(val) ln += (kind==='thread') ? ' (線色'+val+')' : ' (間距+'+val+')';
+    lines[h.i]=ln;
+  });
+  ta.value=lines.join('\n');
+  if(partial){   // 反白留著，接著按另一個設定也是改同幾行
+    let a=0; for(let i=0;i<hit[0].i;i++) a+=lines[i].length+1;
+    let b=0; for(let i=0;i<=hit[hit.length-1].i;i++) b+=lines[i].length+1;
+    try{ ta.setSelectionRange(a, b-1); }catch(e){}
+  }
+  const who = partial ? '第 '+specNums(hit.map(h=>h.no))+' 條' : '全部 '+hit.length+' 條';
+  specSay(kind==='thread' ? (val ? '已把'+who+'的文字線色改成 '+val : '已把'+who+'改回預設線色（黑／白）')
+                          : (val ? '已把'+who+'的間距加 '+val+'mm' : '已把'+who+'的間距改回標準'));
+  layoutAndRender();
+}
+/* 按鈕顯示目前處理框的設定（每條一樣才亮） */
+function specSyncUI(parsed){
+  try{
+    const dot=document.getElementById('threadDot'), lbl=document.getElementById('threadLbl'); if(!dot||!lbl) return;
+    const ts=[...new Set((parsed||[]).map(p=>p.thread||''))];
+    if(!ts.length || (ts.length===1 && !ts[0])){ dot.style.background='linear-gradient(135deg,#111 50%,#fff 50%)'; lbl.textContent='預設（黑／白）'; }
+    else if(ts.length===1){ dot.style.background=THREAD_COLORS[ts[0]]; lbl.textContent=ts[0]; }
+    else { dot.style.background='conic-gradient(#e33,#fb3,#3b5,#38f,#a4d,#e33)'; lbl.textContent='每條不同'; }
+    const gs=[...new Set((parsed||[]).map(p=>p.gapAddMm||0))];
+    document.querySelectorAll('.gapBtn').forEach(b=>b.classList.toggle('on', gs.length===1 && Number(b.dataset.gap)===gs[0]));
+  }catch(e){}
+}
+/* 跟客人說的那句（RPA 的 mockup_renderer.py 也是同一句） */
+function gapCustomerMsg(over, n){
+  const nums=[...new Set(over.map(o=>o.line))].sort((a,b)=>a-b);
+  const which = (n<=1) ? '這條' : '圖中第 '+nums.join('、')+' 條';
+  return '提醒您：'+which+'的文字加上小圖比較長，超出了藍色虛線（刺繡範圍），製作時會縮小文字和小圖之間的間距'
+       + (over.some(o=>o.tight) ? '，必要時文字也會稍微縮小' : '') + '，讓'+(nums.length>1?'它們':'整條')+'排進範圍內唷～';
+}
+function showGapNotice(n){
+  try{
+    const box=document.getElementById('gapNotice'); if(!box) return;
+    const over=(n>0 && window.__gapOver) ? window.__gapOver : [];
+    const bad=(n>0) ? specRows(document.getElementById('orders').value||'').slice(0,10).filter(r=>r.threadBad) : [];
+    if(!over.length && !bad.length){ box.hidden=true; box.innerHTML=''; return; }
+    let h='';
+    bad.forEach(r=>{ h+='<div>⚠ 第 '+r.no+' 條的線色「'+specEsc(r.threadBad)+'」不在色卡裡（001–100），先照預設黑／白畫</div>'; });
+    over.forEach(o=>{ h+='<div>⚠ 第 '+o.line+' 條：文字＋小圖超出框線 '+o.overCm.toFixed(1)+' cm'+(o.tight?'（間距縮到 0 也放不下，文字也要縮）':'')+'</div>'; });
+    if(over.length) h+='<div class="gn-say">傳圖時跟客人說：<span id="gapSay">'+specEsc(gapCustomerMsg(over, n))+'</span><button type="button" id="gapCopy" class="secondary">複製這句</button></div>';
+    box.innerHTML=h; box.hidden=false;
+    const cb=document.getElementById('gapCopy');
+    if(cb) cb.onclick=function(){
+      const t=document.getElementById('gapSay').textContent, btn=this;
+      const sel=()=>{ try{ const r=document.createRange(); r.selectNodeContents(document.getElementById('gapSay')); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent='已反白，按 Ctrl+C'; }catch(e){} };
+      try{ navigator.clipboard.writeText(t).then(()=>{ btn.textContent='已複製'; setTimeout(()=>{ btn.textContent='複製這句'; }, 1500); }, sel); }catch(e){ sel(); }
+    };
+  }catch(e){}
+}
+(function specInit(){
+  try{
+    const pal=document.getElementById('threadPanel'); if(!pal) return;
+    let h='<button type="button" class="thread-def" data-code="">預設（照織帶顏色用黑字或白字）</button><div class="thread-grid">';
+    THREAD_HEX.forEach((h0,i)=>{   // 照色號順序排（不能用 Object.keys：'100' 會被排到最前面）
+      const k=String(i+1).padStart(3,'0'), hx=THREAD_COLORS[k], lum=0.299*parseInt(hx.substr(1,2),16)+0.587*parseInt(hx.substr(3,2),16)+0.114*parseInt(hx.substr(5,2),16);
+      h+='<button type="button" class="thread-sw" data-code="'+k+'" title="線色 '+k+'" style="background:'+hx+';color:'+(lum>150?'#333':'#fff')+'">'+k+'</button>';
+    });
+    pal.innerHTML=h+'</div>';
+    pal.addEventListener('click', e=>{ const b=e.target.closest('[data-code]'); if(!b) return; pal.hidden=true; specApply('thread', b.dataset.code); });
+    document.getElementById('threadBtn').addEventListener('click', ()=>{ pal.hidden=!pal.hidden; });
+    document.querySelectorAll('.gapBtn').forEach(b=>b.addEventListener('click', ()=>specApply('gap', Number(b.dataset.gap))));
+    let tmr=null;
+    document.getElementById('orders').addEventListener('input', ()=>{ clearTimeout(tmr); tmr=setTimeout(()=>{ try{ specSyncUI(splitLines(document.getElementById('orders').value).slice(0,10).map(parseLine).filter(Boolean)); }catch(e){} }, 300); });
+    specSyncUI([]);
+  }catch(e){ console.warn('[特殊需求] 初始化失敗（不影響產圖）', e); }
+})();
 
 document.getElementById('saveBtn').addEventListener('click', () => {
   const newWin = window.open('', '_blank');
@@ -899,8 +1095,11 @@ document.getElementById('orders').value="黑+Maico+1\n黃+金+小麥+20\n綠色+
 /* ===== 新增：儲存模擬圖資料到刺繡系統 ===== */
 document.getElementById('saveRecordBtn').addEventListener('click', function() {
   var account = document.getElementById('custAccount').value.trim();
-  var content = document.getElementById('orders').value.trim();  // 處理框當下的內容
+  var rawContent = document.getElementById('orders').value.trim();  // 處理框當下的內容
+  var content = stripSpecialAll(rawContent);   // v15.3 (線色…)(間距…) 記號拿掉：製作內容只留標準格式（打版清單照舊讀得懂）
   var redNote = (document.getElementById('redNote').value || '').replace(/[\r\n]+/g, ' ').trim();   // 2026-11-01 給師傅的紅字備註（空白＝沒有）
+  var specNote = specialNote(rawContent);   // v15.3 特殊線色／間距 → 加在紅字備註最前面，例：文字線色023｜文字和小圖間距+5mm（飄帶共13mm）
+  if (specNote) redNote = specNote + (redNote ? '；' + redNote : '');
   var shipSpec = document.getElementById('shipSpec').value || '';   // 2026-11-01 指定出貨日 yyyy-MM-dd（空白＝沿用這位客人之前指定的）
   var shipCancel = !shipSpec && document.getElementById('shipSpecCancel').checked;   // 2026-11-01 勾了「取消…」＝清掉原本指定的、改回照規則算
   var statusEl = document.getElementById('saveRecordStatus');
